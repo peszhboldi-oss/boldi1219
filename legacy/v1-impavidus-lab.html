@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="hu"><head><meta charset="utf-8"><title>Impavidus Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#09080a;--s1:#131113;--s2:#1b171a;--bd:#2b2428;--ac:#8a1f2f;--ac2:#b8404f;--tx:#ece6e7;--mu:#8e8589;--ok:#6fae85;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 "Barlow","Segoe UI",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+#app{min-height:100vh;padding-bottom:84px}main{max-width:760px;margin:0 auto;padding:16px}
+h1,h2,h3{margin:0;font-family:"Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.01em}h1{font-size:30px}h2{font-size:20px;margin:22px 0 10px}h3{font-size:16px}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 6px 20px #0006}
+.g{display:grid;gap:10px;grid-template-columns:1fr 1fr}.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.big{font:700 38px/1 "Barlow Condensed","Arial Narrow",sans-serif}.mu{color:var(--mu);font-size:13px}.up{color:var(--ok)}
+button{cursor:pointer;border:1px solid var(--bd);background:var(--s2);border-radius:10px;padding:10px 14px;min-height:44px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ac2);outline-offset:2px}
+.pr{background:var(--ac);border-color:var(--ac2);font-weight:700}.pr:active{transform:scale(.98)}.w{width:100%}
+.done{background:#1d3326;border-color:var(--ok);color:var(--ok)}
+input,select,textarea{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:10px;min-height:44px;width:100%}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0d0b0ce8;backdrop-filter:blur(10px);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav button{flex:1;border:0;background:none;border-radius:0;color:var(--mu);font-size:12px;min-height:56px}nav .on{color:var(--tx);box-shadow:inset 0 3px var(--ac2)}
+.rg{position:relative;width:130px;height:130px;margin:auto;display:grid;place-items:center;text-align:center}.rg svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.rg circle{fill:none;stroke-width:8}.rg .t{stroke:var(--s2)}.rg .v{stroke:var(--ac2);stroke-linecap:round;animation:rg 1.1s cubic-bezier(.2,.8,.2,1) both;stroke-dasharray:var(--p) 264}
+@keyframes rg{from{stroke-dasharray:0 264}}.rg b{font:700 30px "Barlow Condensed",sans-serif}.rg small{display:block;color:var(--mu);font-size:11px;margin-top:-4px}
+.bar{height:6px;background:var(--s2);border-radius:4px;overflow:hidden;margin:4px 0 8px}.bar i{display:block;height:100%;background:var(--ac2);transition:width .6s}
+.ch{width:100%;height:130px}.ln{fill:none;stroke:var(--ac2);stroke-width:2.5;stroke-dasharray:1;animation:ln 1.2s ease-out both}.ar{fill:#8a1f2f33;stroke:none}@keyframes ln{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.ax{display:flex;justify-content:space-between;color:var(--mu);font-size:12px}.em{padding:18px;text-align:center;color:var(--mu);border:1px dashed var(--bd);border-radius:12px}
+.chips{display:flex;gap:8px;margin:8px 0}.chips button{flex:1}.chips .on{background:var(--ac);border-color:var(--ac2)}
+.st{display:flex;gap:6px}.st button{flex:1;padding:6px}.st .on{background:var(--ac);border-color:var(--ac2)}
+.set{display:grid;grid-template-columns:24px 1fr 1fr;gap:8px;align-items:center;margin-top:8px}.set+button{margin-top:6px}
+.tag{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--s2);color:var(--mu)}
+#sync{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:12px;font-size:12px;color:var(--mu);background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:3px 10px;z-index:6}
+#toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--ac);padding:10px 16px;border-radius:10px;z-index:9;display:none}
+.md{position:fixed;inset:0;background:#000c;z-index:8;display:grid;place-items:center;padding:16px}.md>div{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto;animation:pop .3s}
+@keyframes pop{from{opacity:0;transform:scale(.95)}}
+.lg{max-width:380px;margin:12vh auto 0;padding:20px}.lg h1{font-size:44px;text-align:center}
+@media(min-width:900px){nav{top:0;bottom:auto;right:auto;width:200px;flex-direction:column;border-top:0;border-right:1px solid var(--bd);padding-top:60px}nav button{flex:0;text-align:left;padding:14px 22px;font-size:15px}nav .on{box-shadow:inset 3px 0 var(--ac2)}#app{padding-left:200px}main{max-width:1000px}.dg{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body><div id="sync"></div><div id="app"></div><div id="toast"></div>
+<script>
+const $=q=>document.querySelector(q),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const iso=d=>d.toISOString().slice(0,10),ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return iso(d)};
+const r5=x=>Math.round(x/2.5)*2.5,fm=n=>Math.round(n).toLocaleString('hu-HU');
+let db,me=null,S={tab:'ov',rg:30,cl:null,sync:'Mentve',modal:null,err:''};
+function seed(){let s=11;const R=()=>(s=s*16807%2147483647)/2147483647;
+const d={users:[{id:'c0',role:'coach',name:'Kovács Márk',email:'edzo@impavidus.lab',pw:'edzo123'},{id:'c1',role:'client',name:'Szabó Bence',email:'bence@impavidus.lab',pw:'kliens123'},{id:'c2',role:'client',name:'Nagy Réka',email:'reka@impavidus.lab',pw:'kliens123'}],
+prof:{c1:{w:86,g:80,exp:'Haladó',goals:'Szálkásítás, erőszint megtartása'},c2:{w:61,g:64,exp:'Középhaladó',goals:'Izomtömeg-növelés'}},
+ex:[['e1','Fekvenyomás','Szabad súlyos'],['e2','Vállból nyomás','Szabad súlyos'],['e3','Evezés rúddal','Szabad súlyos'],['e4','Húzódzkodás','Testsúlyos'],['e5','Guggolás','Szabad súlyos'],['e6','Felhúzás','Szabad súlyos'],['e7','Lábtoló','Gépes'],['e8','Futópad','Kardió']].map(a=>({id:a[0],n:a[1],cat:a[2],act:1})),
+foods:[['f1','Csirkemell',165,31,0,3.6,'g'],['f2','Rizs (főtt)',130,2.7,28,.3,'g'],['f3','Zabpehely',370,13,60,7,'g'],['f4','Tojás',78,6,.6,5,'adag'],['f5','Túró',98,12,3.5,4,'g'],['f6','Banán',105,1.3,27,.4,'adag'],['f7','Fehérjepor',120,24,3,1.5,'adag']].map(a=>({id:a[0],n:a[1],k:a[2],p:a[3],c:a[4],f:a[5],u:a[6]})),
+plans:[],ses:[],met:{c1:{},c2:{}},diet:{c1:[{f:'f1',q:200},{f:'f2',q:250},{f:'f3',q:80},{f:'f4',q:3},{f:'f7',q:1},{f:'f5',q:250}],c2:[{f:'f1',q:150},{f:'f2',q:300},{f:'f3',q:90},{f:'f4',q:2},{f:'f5',q:200},{f:'f6',q:2},{f:'f7',q:1}]},eat:{c1:{},c2:{}},act:{},notes:[],pend:0};
+const B={e1:80,e2:50,e3:70,e4:0,e5:100,e6:120},mult={c1:1,c2:.5},names=['A – Mell/Váll','B – Hát/Kar','C – Láb'],lay=[['e1','e2'],['e3','e4'],['e5','e6']];
+['c1','c2'].forEach(c=>{lay.forEach((l,i)=>d.plans.push({id:'p'+c+i,cid:c,n:names[i],items:l.map(e=>({ex:e,sets:3,reps:8,w:r5(B[e]*mult[c])}))}));
+let k=0;for(let a=29;a>=0;a--){const day=ago(a),m=d.met[c];
+if(c=='c1'||a%2==0||a<3){const bw=c=='c1'?86-.12*(29-a)+(R()-.5)*.5:(a>=15?61+(29-a)*.09:62.3+(R()-.5)*.25);if(a>0||c=='c1')m[day]={bw:+bw.toFixed(1)}}
+if(a>0){m[day]=m[day]||{};Object.assign(m[day],{sl:2+Math.floor(R()*4),st:1+Math.floor(R()*4),ad:3+Math.floor(R()*3)});
+d.eat[c][day]=d.diet[c].map((_,i)=>i).filter(()=>R()<.92)}
+else d.eat[c][day]=[0,1,2];
+if(a>0&&(29-a)%2==0){const p=d.plans.filter(x=>x.cid==c)[k++%3],pr=1+k*.012,t=new Date(day+'T17:30:00');
+const sets=[];p.items.forEach(it=>{for(let i=0;i<3;i++)sets.push({ex:it.ex,i,w:it.w?r5(it.w*pr):0,r:[10,9,8][i]-(R()<.3?1:0)})});
+const du=55+Math.floor(R()*20);d.ses.push({id:'s'+c+a,cid:c,plan:p.id,name:p.n,start:t.toISOString(),end:new Date(+t+du*6e4).toISOString(),dur:du,sets})}}});
+d.notes=[{id:'n1',cid:'c1',t:'Jó ütem a szálkásításban, a heti 0,5 kg csökkenés ideális. Tartsd a fehérjét.',d:ago(21)},{id:'n2',cid:'c1',t:'A guggolásnál figyelj a térdekre, a mélység legyen kontrollált.',d:ago(9)},{id:'n3',cid:'c2',t:'Az utóbbi 2 hétben megállt a súlyod – a kalóriát emelni fogjuk.',d:ago(4)}];return d}
+function load(){try{db=JSON.parse(localStorage.getItem('il_db'))}catch(e){}if(!db){db=seed();try{localStorage.setItem('il_db',JSON.stringify(db))}catch(e){}}
+try{const u=localStorage.getItem('il_me');if(u)me=db.users.find(x=>x.id==u)}catch(e){}}
+function save(){if(!navigator.onLine){db.pend=(db.pend||0)+1;S.sync='Offline mentve'}else{S.sync='Szinkronizálás...';setTimeout(()=>{db.pend=0;S.sync='Szinkronizálva';sy()},700)}
+try{localStorage.setItem('il_db',JSON.stringify(db))}catch(e){toast('A mentés nem sikerült. Ellenőrizd a tárhelyet.')}sy()}
+const sy=()=>{$('#sync').textContent=(S.sync=='Szinkronizálva'?'✓ ':'')+S.sync+(db&&db.pend?' ('+db.pend+')':'')};
+addEventListener('online',()=>{if(db.pend){S.sync='Szinkronizálás...';sy();setTimeout(()=>{db.pend=0;S.sync='Szinkronizálva';save()},800)}});
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2600)}
+const M=c=>db.met[c]||(db.met[c]={}),SS=c=>db.ses.filter(s=>s.cid==c).sort((a,b)=>a.start<b.start?1:-1),EX=id=>(db.ex.find(e=>e.id==id)||{n:'?'}).n;
+const bws=(c,n)=>Object.entries(M(c)).filter(([d,v])=>v.bw&&d>=ago(n)).sort().map(([d,v])=>[d,v.bw]);
+const curW=c=>{const a=bws(c,400);return a.length?a[a.length-1][1]:db.prof[c].w},uname=c=>db.users.find(u=>u.id==c).name;
+const nut=it=>{const f=db.foods.find(x=>x.id==it.f),m=f.u=='adag'?it.q:it.q/100;return{k:f.k*m,p:f.p*m,c:f.c*m,f:f.f*m}};
+const sum=a=>a.reduce((s,x)=>({k:s.k+x.k,p:s.p+x.p,c:s.c+x.c,f:s.f+x.f}),{k:0,p:0,c:0,f:0});
+const dayN=(c,d)=>{const e=(db.eat[c]||{})[d]||[];return sum((db.diet[c]||[]).filter((_,i)=>e.includes(i)).map(nut))},tgt=c=>sum((db.diet[c]||[]).map(nut));
+const avg=(c,k,n)=>{const v=Object.entries(M(c)).filter(([d,m])=>d>=ago(n)&&m[k]).map(x=>x[1][k]);return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):'–'};
+const empty=t=>`<div class=em>${t}</div>`;
+const ring=(v,m,l)=>`<div class=rg><svg viewBox="0 0 100 100"><circle cx=50 cy=50 r=42 class=t /><circle cx=50 cy=50 r=42 class=v style="--p:${m?Math.min(v/m,1)*264:0}"/></svg><div><b>${fm(v)}</b><small>${l}</small></div></div>`;
+const bar=(l,v,m)=>`<div class=row><span>${l}</span><span class=mu>${fm(v)} / ${fm(m)} g</span></div><div class=bar><i style="width:${m?Math.min(100,v/m*100):0}%"></i></div>`;
+function chart(p){if(p.length<2)return empty('Rögzíts legalább két testsúlyt a grafikonhoz.');const W=320,H=120,y=p.map(x=>x[1]),lo=Math.min(...y)-.3,hi=Math.max(...y)+.3;
+const P=p.map((x,i)=>[i/(p.length-1)*W,H-(x[1]-lo)/(hi-lo)*H]),d=P.map((x,i)=>(i?'L':'M')+x[0].toFixed(1)+' '+x[1].toFixed(1)).join('');
+return `<svg class=ch viewBox="-4 -8 ${W+8} ${H+16}" preserveAspectRatio="none"><path d="${d}L${W} ${H}L0 ${H}Z" class=ar /><path d="${d}" pathLength=1 class=ln /></svg><div class=ax><span>${p[0][0].slice(5)}</span><span>${Math.min(...y)}–${Math.max(...y)} kg</span><span>${p[p.length-1][0].slice(5)}</span></div>`}
+function stag(c){const p=bws(c,14).map(x=>x[1]);return p.length>=3&&Math.max(...p)-Math.min(...p)<.5?`<div class="card mu">A testsúlyod az elmúlt időszakban stabilan alakult.</div>`:''}
+function wk(c){const s=SS(c).filter(x=>x.start.slice(0,10)>ago(7)),w=bws(c,7),t=tgt(c).k;let ad=0,n=0;for(let i=1;i<=7;i++){const k=dayN(c,ago(i)).k;if(t){ad+=Math.min(k/t,1);n++}}
+return `<div class=card><h3>Heti összefoglaló</h3><div class=g style="margin-top:8px"><div><div class=big>${s.length}</div><span class=mu>edzés</span></div><div><div class=big>${s.reduce((a,x)=>a+x.sets.length,0)}</div><span class=mu>sorozat</span></div>
+<div><div class=big>${w.length>1?(w[w.length-1][1]-w[0][1]>0?'+':'')+(w[w.length-1][1]-w[0][1]).toFixed(1):'–'}</div><span class=mu>kg változás</span></div><div><div class=big>${n?Math.round(ad/n*100):0}%</div><span class=mu>kalóriacél</span></div></div>
+<p class=mu>Átlag – alvás: ${avg(c,'sl',7)} · stressz: ${avg(c,'st',7)} · tervbetartás: ${avg(c,'ad',7)}</p></div>`}
+function prs(c){const best={};SS(c).slice().reverse().forEach(s=>s.sets.forEach(x=>{const sc=x.w?x.w*(1+x.r/30):x.r;if(!best[x.ex]||sc>best[x.ex].sc)best[x.ex]={sc,w:x.w,r:x.r,d:s.start.slice(0,10)}}));return Object.entries(best)}
+const prList=c=>prs(c).length?prs(c).map(([e,b])=>`<div class=row><span>${EX(e)}</span><b>${b.w?b.w+' kg × ':''}${b.r}${b.w?'':' ism.'}</b><span class=mu>${b.d.slice(5)}</span></div>`).join(''):empty('Még nincs rekord.');
+const sesList=(c,n)=>SS(c).slice(0,n).map(s=>`<div class=card><div class=row><b>${esc(s.name)}</b><span class=mu>${s.start.slice(0,10)}</span></div><span class=mu>${s.sets.filter(x=>x.r).length} sorozat · ${s.dur} perc</span></div>`).join('')||empty('Még nincs rögzített edzés.');
+function prev(c,e,i){for(const s of SS(c)){const a=s.sets.filter(x=>x.ex==e);if(a.length)return a[i]||a[a.length-1]}}
+const A={
+login(e,p){const u=db.users.find(x=>x.email==e.trim().toLowerCase()&&x.pw==p);if(!u){S.err='Hibás e-mail vagy jelszó.';return R()}me=u;S.err='';S.tab=u.role=='coach'?'db':'ov';S.cl=null;try{localStorage.setItem('il_me',u.id)}catch(x){}R()},
+out(){me=null;try{localStorage.removeItem('il_me')}catch(x){}R()},tab(t){S.tab=t;S.cl=null;R()},rg(n){S.rg=n;R()},cl(c){S.cl=c;R()},
+rate(k,n){const m=M(me.id),d=ago(0);m[d]=m[d]||{};m[d][k]=n;save();R()},
+bw(){const v=parseFloat($('#bwi').value);if(!(v>=30&&v<=300))return toast('Adj meg 30 és 300 kg közötti testsúlyt.');const m=M(me.id),d=ago(0);m[d]=m[d]||{};m[d].bw=v;save();toast('Testsúly mentve.');R()},
+eat(i){const c=me.id,d=ago(0),e=db.eat[c][d]||(db.eat[c][d]=[]),k=e.indexOf(i);k<0?e.push(i):e.splice(k,1);save();R()},
+start(pid){const c=me.id,p=db.plans.find(x=>x.id==pid);db.act[c]={name:p?p.name:'Gyors edzés',plan:pid||null,start:new Date().toISOString(),ex:(p?p.items:[]).map(it=>({id:it.ex,sets:Array.from({length:it.sets},(_,i)=>{const q=prev(c,it.ex,i);return{w:q?q.w:it.w,r:q?q.r:it.reps,d:0}})}))};save();S.tab='wo';R()},
+addEx(){const id=$('#nex').value,c=me.id;if(!id)return;const q=prev(c,id,0);db.act[c].ex.push({id,sets:[{w:q?q.w:0,r:q?q.r:8,d:0}]});save();R()},
+addSet(xi){const a=db.act[me.id].ex[xi],l=a.sets[a.sets.length-1];a.sets.push({w:l.w,r:l.r,d:0});save();R()},
+inp(xi,si,k,v){db.act[me.id].ex[xi].sets[si][k]=parseFloat(v)||0;try{localStorage.setItem('il_db',JSON.stringify(db))}catch(e){}},
+done(xi,si){const s=db.act[me.id].ex[xi].sets[si];if(!s.d){if(!(s.r>=1&&s.r<=100&&Number.isInteger(s.r)))return toast('Az ismétlés 1–100 közötti egész szám legyen.');if(!(s.w>=0&&s.w<=500))return toast('A súly 0–500 kg között lehet.')}s.d=s.d?0:1;save();R()},
+finish(){const c=me.id,a=db.act[c],sets=[];a.ex.forEach(x=>x.sets.forEach((s,i)=>s.d&&sets.push({ex:x.id,i,w:s.w,r:s.r})));if(!sets.length)return toast('Jelölj be legalább egy kész sorozatot.');
+const old=prs(c),end=new Date(),newPR=[];const best={};sets.forEach(s=>{const sc=s.w?s.w*(1+s.r/30):s.r;if(!best[s.ex]||sc>best[s.ex].sc)best[s.ex]={sc,s}});
+Object.entries(best).forEach(([e,b])=>{const o=old.find(x=>x[0]==e);if(o&&b.sc>o[1].sc)newPR.push(EX(e)+' – '+(b.s.w?b.s.w+' kg × ':'')+b.s.r)});
+const dur=Math.max(1,Math.round((end-new Date(a.start))/6e4));db.ses.push({id:'s'+Date.now(),cid:c,plan:a.plan,name:a.name,start:a.start,end:end.toISOString(),dur,sets});delete db.act[c];save();S.modal={name:a.name,dur,n:sets.length,d:ago(0),pr:newPR};S.tab='tr';R()},
+drop(){delete db.act[me.id];save();S.tab='tr';R()},
+note(){const t=$('#nt').value.trim();if(!t)return toast('Írj megjegyzést.');db.notes.push({id:'n'+Date.now(),cid:S.cl,t,d:ago(0)});save();R()},
+addEx2(){const n=$('#xn').value.trim();if(!n)return toast('Add meg a gyakorlat nevét.');db.ex.push({id:'e'+Date.now(),n,cat:$('#xc').value,act:1});save();R()},
+arch(id){const e=db.ex.find(x=>x.id==id);e.act=e.act?0:1;save();R()},
+addFood(){const g=i=>parseFloat($(i).value),n=$('#fn').value.trim(),v=[g('#fk'),g('#fp'),g('#fc'),g('#ff')];if(!n||v.some(x=>!(x>=0)))return toast('Töltsd ki a nevet és a számokat (0 vagy több).');db.foods.push({id:'f'+Date.now(),n,k:v[0],p:v[1],c:v[2],f:v[3],u:$('#fu').value});save();R()},
+exp(){S.modal={json:JSON.stringify({profil:db.prof[me.id],testsuly_es_ertekelesek:M(me.id),edzesek:SS(me.id),etrend:db.diet[me.id],megjegyzesek:db.notes.filter(n=>n.cid==me.id)},null,1)};R()},
+reset(){try{localStorage.removeItem('il_db')}catch(e){}me=null;load();R()},close(){S.modal=null;R()}};
+function loginV(){return `<main class="lg"><h1>IMPAVIDUS LAB</h1><p class=mu style="text-align:center">Edzés. Étrend. Adat.</p><div class=card><label class=mu>E-mail</label><input id=le type=email autocomplete=username><label class=mu>Jelszó</label><input id=lp type=password autocomplete=current-password><p style="color:var(--ac2)">${S.err}</p><button class="pr w" onclick="A.login($('#le').value,$('#lp').value)">Belépés</button></div>
+<div class=card><p class=mu>Demó fiókok (egy koppintással):</p>${[['edzo@impavidus.lab','edzo123','Edző: Kovács Márk'],['bence@impavidus.lab','kliens123','Kliens: Szabó Bence'],['reka@impavidus.lab','kliens123','Kliens: Nagy Réka']].map(a=>`<button class=w style="margin-top:6px" onclick="A.login('${a[0]}','${a[1]}')">${a[2]}</button>`).join('')}</div></main>`}
+function ratings(c){const d=M(c)[ago(0)]||{};return [['sl','Alvás'],['st','Stressz'],['ad','Tervbetartás']].map(([k,l])=>`<div style="margin-top:8px"><span class=mu>${l}</span><div class=st>${[1,2,3,4,5].map(n=>`<button class="${d[k]==n?'on':''}" onclick="A.rate('${k}',${n})" aria-label="${l} ${n}">${n}</button>`).join('')}</div></div>`).join('')}
+function nextPlan(c){const ps=db.plans.filter(p=>p.cid==c),l=SS(c)[0];if(!ps.length)return null;const i=l?ps.findIndex(p=>p.id==l.plan):-1;return ps[(i+1)%ps.length]}
+function ov(){const c=me.id,p=db.prof[c],w=curW(c),t=tgt(c),n=dayN(c,ago(0)),np=nextPlan(c),done=SS(c)[0]&&SS(c)[0].start.slice(0,10)==ago(0);
+return `<h1>${esc(me.name)}</h1><p class=mu>${esc(p.goals)} · ${esc(p.exp)}</p><div class=dg><div class=card><div class=row><div><span class=mu>Testsúly</span><div class=big>${w} kg</div></div><div style="text-align:right"><span class=mu>Cél</span><div class=big>${p.g} kg</div></div></div></div>
+<div class=card><span class=mu>Mai edzés</span><h3>${np?esc(np.name):'Nincs terv'}</h3>${done?'<p class=up>Ma már rögzítettél edzést.</p>':''}<button class="pr w" onclick="A.start(${np?`'${np.id}'`:'null'})">${db.act[c]?'Edzés folytatása':'Edzés indítása'}</button></div></div>
+<div class=card><div class=row><div style="flex:1">${ring(n.k,t.k,'kcal / '+fm(t.k))}</div><div style="flex:1.3">${bar('Fehérje',n.p,t.p)}${bar('Szénhidrát',n.c,t.c)}${bar('Zsír',n.f,t.f)}</div></div></div>
+<div class=card><h3>Mai állapot (1–5)</h3>${ratings(c)}</div>${stag(c)}${wk(c)}`}
+function tr(){const c=me.id,a=db.act[c];if(a)return wo();
+return `<h1>Edzés</h1><button class="pr w" style="min-height:56px" onclick="A.start(null)">Gyors indítás</button><h2>Edzéstervek</h2>${db.plans.filter(p=>p.cid==c).map(p=>`<div class=card><div class=row><div><b>${esc(p.name)}</b><div class=mu>${p.items.map(i=>EX(i.ex)).join(', ')}</div></div><button onclick="A.start('${p.id}')">Indítás</button></div></div>`).join('')||empty('Az edző még nem állított be tervet.')}<h2>Előzmények</h2>${sesList(c,8)}<h2>Rekordok</h2><div class=card>${prList(c)}</div>`}
+function wo(){const a=db.act[me.id],ex=db.ex.filter(e=>e.act);
+return `<div class=row><h1>${esc(a.name)}</h1><button onclick="if(confirm('Eldobod az edzést?'))A.drop()">Elvetés</button></div>${a.ex.map((x,xi)=>`<div class=card><h3>${EX(x.id)}</h3>${x.sets.map((s,si)=>{const q=prev(me.id,x.id,si);return `<div class=mu style="margin-top:8px">Előző: ${q?(q.w?q.w+' kg × ':'')+q.r+' ism.':'–'}</div><div class=set><span>${si+1}.</span><input type=number inputmode=decimal step=.5 value="${s.w}" oninput="A.inp(${xi},${si},'w',this.value)" aria-label="Súly (kg)"><input type=number inputmode=numeric value="${s.r}" oninput="A.inp(${xi},${si},'r',this.value)" aria-label="Ismétlés"></div><button class="w ${s.d?'done':'pr'}" style="min-height:52px" onclick="A.done(${xi},${si})">${s.d?'✓ KÉSZ':'SOROZAT KÉSZ'}</button>`}).join('')}<button class=w style="margin-top:10px" onclick="A.addSet(${xi})">+ Sorozat</button></div>`).join('')}
+<div class=card><div class=row><select id=nex><option value="">Gyakorlat hozzáadása…</option>${ex.map(e=>`<option value="${e.id}">${esc(e.n)}</option>`).join('')}</select><button onclick="A.addEx()">Hozzáad</button></div></div><button class="pr w" style="min-height:56px" onclick="A.finish()">EDZÉS BEFEJEZÉSE</button>`}
+function food(){const c=me.id,di=db.diet[c]||[];if(!di.length)return `<h1>Táplálkozás</h1>${empty('Az edző még nem állított be aktív étrendet.')}`;const t=tgt(c),n=dayN(c,ago(0)),e=db.eat[c][ago(0)]||[];
+return `<h1>Táplálkozás</h1><div class=card><div class=row><div style="flex:1">${ring(n.k,t.k,'kcal / '+fm(t.k))}</div><div style="flex:1.3">${bar('Fehérje',n.p,t.p)}${bar('Szénhidrát',n.c,t.c)}${bar('Zsír',n.f,t.f)}</div></div></div><h2>Mai étrend</h2>${di.map((it,i)=>{const f=db.foods.find(x=>x.id==it.f),x=nut(it);return `<div class=card><div class=row><div><b>${esc(f.n)}</b> <span class=tag>${it.q} ${f.u=='adag'?'adag':f.u}</span><div class=mu>${fm(x.k)} kcal · F ${fm(x.p)} · Sz ${fm(x.c)} · Zs ${fm(x.f)}</div></div><button class="${e.includes(i)?'done':''}" onclick="A.eat(${i})">${e.includes(i)?'✓ Megvolt':'Megettem'}</button></div></div>`}).join('')}`}
+function stats(c,coach){const s=SS(c).filter(x=>x.start.slice(0,10)>ago(S.rg)),w=bws(c,S.rg);
+return `<div class=chips>${[7,30,90].map(n=>`<button class="${S.rg==n?'on':''}" onclick="A.rg(${n})">${n} nap</button>`).join('')}</div><div class=card><h3>Testsúly</h3>${chart(w)}</div>
+<div class=g><div class=card><div class=big>${s.length}</div><span class=mu>edzés</span></div><div class=card><div class=big>${s.reduce((a,x)=>a+x.sets.length,0)}</div><span class=mu>sorozat</span></div></div>
+<div class=card><span class=mu>Átlagok (${S.rg} nap)</span><div class=g style="margin-top:6px"><div><div class=big>${avg(c,'sl',S.rg)}</div><span class=mu>alvás</span></div><div><div class=big>${avg(c,'st',S.rg)}</div><span class=mu>stressz</span></div></div><div style="margin-top:8px"><div class=big>${avg(c,'ad',S.rg)}</div><span class=mu>tervbetartás</span></div></div>${stag(c)}${coach?'':wk(c)}`}
+function prof(){const c=me.id,p=me.role=='client'?db.prof[c]:null;
+return `<h1>${esc(me.name)}</h1><p class=mu>${me.role=='coach'?'Edző':'Kliens'} · ${esc(me.email)}</p>${p?`<div class=card><h3>Testsúly rögzítése</h3><div class=row style="margin-top:8px"><input id=bwi type=number step=.1 inputmode=decimal placeholder="${curW(c)} kg"><button class=pr onclick="A.bw()">Mentés</button></div><p class=mu>Cél: ${p.g} kg · ${esc(p.goals)}</p></div><div class=card><h3>Mai állapot (1–5)</h3>${ratings(c)}</div><button class=w onclick="A.exp()">Adatexport (JSON)</button>`:''}<button class=w style="margin-top:10px" onclick="A.out()">Kijelentkezés</button><button class=w style="margin-top:10px" onclick="if(confirm('Visszaállítod a demó adatokat?'))A.reset()">Demó adatok visszaállítása</button>`}
+const clients=()=>db.users.filter(u=>u.role=='client'),last=c=>(SS(c)[0]||{start:''}).start.slice(0,10);
+function dash(){const all=db.ses.filter(s=>s.start.slice(0,10)>ago(7)).length;
+return `<h1>Dashboard</h1><div class=g><div class=card><div class=big>${clients().length}</div><span class=mu>kliens</span></div><div class=card><div class=big>${all}</div><span class=mu>edzés / 7 nap</span></div></div><h2>Kliensek</h2>${clist()}<h2>Legutóbbi aktivitás</h2>${db.ses.slice().sort((a,b)=>a.start<b.start?1:-1).slice(0,6).map(s=>`<div class=card><div class=row><b>${esc(uname(s.cid))}</b><span class=mu>${s.start.slice(0,10)}</span></div><span class=mu>${esc(s.name)} · ${s.sets.length} sorozat · ${s.dur} perc</span></div>`).join('')||empty('Még nincs aktivitás.')}`}
+const clist=()=>clients().map(u=>`<div class=card onclick="A.cl('${u.id}')" style="cursor:pointer" role=button tabindex=0 onkeydown="if(event.key=='Enter')A.cl('${u.id}')"><div class=row><div><b>${esc(u.name)}</b><div class=mu>Utolsó edzés: ${last(u.id)||'–'}</div></div><div style="text-align:right"><div class=big style="font-size:28px">${curW(u.id)} kg</div><span class=mu>cél ${db.prof[u.id].g} kg</span></div></div></div>`).join('');
+function detail(){const c=S.cl,p=db.prof[c],t=tgt(c);
+return `<button onclick="A.cl(null)">← Vissza</button><h1 style="margin-top:10px">${esc(uname(c))}</h1><p class=mu>${esc(p.goals)} · ${esc(p.exp)}</p><div class=dg><div>${stats(c,1)}<div class=card><h3>Napi állapot (ma)</h3><p class=mu>Alvás ${(M(c)[ago(0)]||{}).sl||'–'} · Stressz ${(M(c)[ago(0)]||{}).st||'–'} · Tervbetartás ${(M(c)[ago(0)]||{}).ad||'–'}</p></div>${wk(c)}</div>
+<div><h2 style="margin-top:0">Edzések</h2>${sesList(c,5)}<h3>Rekordok</h3><div class=card>${prList(c)}</div><h3>Aktív étrend</h3><div class=card>${(db.diet[c]||[]).map(it=>{const f=db.foods.find(x=>x.id==it.f);return `<div class=row><span>${esc(f.n)}</span><span class=mu>${it.q} ${f.u=='adag'?'adag':f.u}</span></div>`}).join('')||empty('Nincs aktív étrend.')}<p class=mu>Cél: ${fm(t.k)} kcal · F ${fm(t.p)} · Sz ${fm(t.c)} · Zs ${fm(t.f)}</p><p class=mu>Ma: ${fm(dayN(c,ago(0)).k)} kcal</p></div>
+<h3>Megjegyzések</h3>${db.notes.filter(n=>n.cid==c).sort((a,b)=>a.d<b.d?1:-1).map(n=>`<div class=card><span class=mu>${n.d}</span><div>${esc(n.t)}</div></div>`).join('')||empty('Még nincs megjegyzés.')}<textarea id=nt rows=2 placeholder="Új megjegyzés…"></textarea><button class="pr w" style="margin-top:8px" onclick="A.note()">Megjegyzés mentése</button></div></div>`}
+function plans(){return `<h1>Tervek</h1>${db.plans.map(p=>`<div class=card><div class=row><b>${esc(p.name)}</b><span class=tag>${esc(uname(p.cid))}</span></div>${p.items.map(i=>`<div class=row><span>${EX(i.ex)}</span><span class=mu>${i.sets} × ${i.reps}${i.w?' · '+i.w+' kg':''}</span></div>`).join('')}</div>`).join('')||empty('Még nincs edzésterv.')}`}
+function cat(){const q=(S.q||'').toLowerCase();return `<h1>Katalógus</h1><input placeholder="Keresés…" value="${esc(S.q)}" oninput="S.q=this.value;R(1)" id=qs><h2>Gyakorlatok</h2>${db.ex.filter(e=>e.n.toLowerCase().includes(q)).map(e=>`<div class=card><div class=row><div><b style="${e.act?'':'opacity:.4'}">${esc(e.n)}</b> <span class=tag>${esc(e.cat)}</span></div><button onclick="A.arch('${e.id}')">${e.act?'Archiválás':'Visszaállítás'}</button></div></div>`).join('')}
+<div class=card><div class=g><input id=xn placeholder="Új gyakorlat neve"><select id=xc><option>Szabad súlyos</option><option>Gépes</option><option>Testsúlyos</option><option>Kardió</option></select></div><button class="pr w" style="margin-top:8px" onclick="A.addEx2()">Gyakorlat hozzáadása</button></div>
+<h2>Ételek</h2>${db.foods.filter(f=>f.n.toLowerCase().includes(q)).map(f=>`<div class=card><div class=row><b>${esc(f.n)}</b><span class=mu>${f.k} kcal · F ${f.p} · Sz ${f.c} · Zs ${f.f} / ${f.u=='adag'?'adag':'100 '+f.u}</span></div></div>`).join('')}
+<div class=card><input id=fn placeholder="Új étel neve"><div class=g style="margin-top:8px"><input id=fk type=number placeholder="kcal"><input id=fp type=number placeholder="Fehérje"><input id=fc type=number placeholder="Szénhidrát"><input id=ff type=number placeholder="Zsír"></div><select id=fu style="margin-top:8px"><option value=g>gramm (érték / 100 g)</option><option value=ml>milliliter (érték / 100 ml)</option><option value=adag>adag</option></select><button class="pr w" style="margin-top:8px" onclick="A.addFood()">Étel hozzáadása</button></div>`}
+const NAV={client:[['ov','Áttekintés'],['tr','Edzés'],['fd','Étrend'],['st','Statisztika'],['pf','Profil']],coach:[['db','Dashboard'],['kl','Kliensek'],['tv','Tervek'],['kt','Katalógus'],['pf','Profil']]};
+function R(keep){if(!db)return;let h;if(!me)h=loginV();else{const t=S.tab,co=me.role=='coach';let m;
+if(co)m=t=='db'?dash():t=='kl'?(S.cl?detail():`<h1>Kliensek</h1>${clist()}`):t=='tv'?plans():t=='kt'?cat():prof();
+else m=t=='ov'?ov():(t=='tr'||t=='wo')?tr():t=='fd'?food():t=='st'?`<h1>Statisztika</h1>${stats(me.id)}`:prof();
+if(co&&S.cl&&t=='db')S.tab='kl';
+const on=t=='wo'?'tr':t;h=`<main>${m}</main><nav>${NAV[me.role].map(n=>`<button class="${n[0]==on?'on':''}" onclick="A.tab('${n[0]}')">${n[1]}</button>`).join('')}</nav>`}
+if(S.modal)h+=modal();$('#app').innerHTML=h;sy();if(keep){const q=$('#qs');if(q){q.focus();q.setSelectionRange(99,99)}}}
+function modal(){const m=S.modal;if(m.json)return `<div class=md><div><h3>Adatexport</h3><textarea rows=12 readonly onclick="this.select()">${esc(m.json)}</textarea><button class="w pr" style="margin-top:10px" onclick="A.close()">Bezárás</button></div></div>`;
+return `<div class=md><div><p class=mu>${m.d}</p><h1>${esc(m.name)}</h1><div class=g style="margin:14px 0"><div><div class=big>${Math.floor(m.dur/60)?Math.floor(m.dur/60)+' ó ':''}${m.dur%60} p</div><span class=mu>időtartam</span></div><div><div class=big>${m.n}</div><span class=mu>sorozat</span></div></div>${m.pr.map(x=>`<div class=card style="border-color:var(--ac2)"><b>ÚJ SZEMÉLYES REKORD</b><div class=mu>${esc(x)}</div></div>`).join('')}<button class="w pr" onclick="A.close()">Rendben</button></div></div>`}
+load();R();if('serviceWorker'in navigator&&location.protocol.startsWith('http')){try{navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}}
+</script></body></html>

@@ -1,0 +1,1 @@
+{"name":"impavidus-lab","version":"2.0.0","private":true,"description":"Impavidus Lab – edző–kliens napló PWA (egyfájlos frontend)","scripts":{"start":"node server.js"}}
