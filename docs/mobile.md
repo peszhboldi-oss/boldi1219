@@ -14,6 +14,12 @@ Ez PWA/böngészős telefonos elérés, **nem APK és nem állandó éles hostin
 
 Leállítás: MOBIL_LEALLITAS.cmd. A helyi app és az adatbázis megmarad.
 
+## Hibakeresés
+
+Az indítás és az ismételt indítás is ellenőrzi a külső HTTPS-címen a saját backend válaszát. Az URL kiírása önmagában nem siker. A háttérfolyamat rendszeresen ellenőrzi a publikus API-t; DNS/HTTP/azonosító-hiba vagy `Unauthorized: Tunnel not found` esetén a helyi állapot és a MOBIL_CIM.txt hibát jelez. Az ismételt MOBIL_INDITAS új kapcsolatot hoz létre a megszűnt helyett, új URL-lel. Nem módosít vagy töröl kliensadatot.
+
+Kézi ellenőrzés: `powershell -File scripts/mobile-launcher.ps1 -Action check`. Kifejezett újraindítás: ugyanaz `-Action restart` kapcsolóval. Az új URL nem állítja helyre a régi URL offline helyi tárhelyét. A lejárt címen lévő függő adatokat őrizd meg; ne töröld a telefon webhelyadatait. A Quick Tunnel tartós, változatlan linkjét ez a hibajavítás nem tudja garantálni.
+
 ## Korlátok és továbblépés
 
 Az URL az interneten elérhető; a kliensadatokat az app hitelesítése és jogosultságai védik. A Cloudflare továbbítja és HTTPS-szinten feldolgozza a forgalmat. A quick tunnel fejlesztési/bemutató eszköz, nincs folyamatos rendelkezésre állási garancia. Tartós klienshasználathoz stabil domain, állandó szerver, ellenőrzött mentés-visszaállítás, üzemeltetés és internetes biztonsági ellenőrzés szükséges. Új helyi módosításokat külön eszközökön ne állíts vissza ellenőrzés nélkül.

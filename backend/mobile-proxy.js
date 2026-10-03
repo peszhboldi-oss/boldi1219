@@ -2,10 +2,10 @@
 const http=require('node:http');
 // HTTPS terminates at Cloudflare. Only this loopback gateway trusts that tunnel.
 // The existing application and its database remain the single backend.
-function createMobileProxy({targetPort=8082,getOrigin,logger=console}={}){
+function createMobileProxy({targetPort=8082,getOrigin,getStatus,logger=console}={}){
   return http.createServer((req,res)=>{
     const origin=getOrigin(),localHost=req.headers.host==='127.0.0.1:8084';
-    if(req.url==='/__mobile_status'&&localHost){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({app:'IMPAVIDUS MOBILE',origin:origin||null}));}
+    if(req.url==='/__mobile_status'&&localHost){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});return res.end(JSON.stringify({app:'IMPAVIDUS MOBILE',...(getStatus?getStatus():{origin:origin||null,ready:false,status:'unverified'})}));}
     if(!origin){res.writeHead(503);return res.end('A telefonos kapcsolat indul.');}
     const publicHost=new URL(origin).host;
     if(req.headers.host!==publicHost||req.headers['x-forwarded-proto']!=='https'){res.writeHead(421);return res.end('Invalid HTTPS host');}
