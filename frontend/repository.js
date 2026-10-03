@@ -4,8 +4,10 @@ export class Repository{
   constructor(){this.csrf=null;this.user=null;this.local=new LocalStore();this.connected=navigator.onLine;this.lastPending=false;this.timeZone='Europe/Budapest';this.databaseEpoch=null;this.warmed=new Set();this.syncing=null;window.addEventListener('online',()=>{this.connected=true;this.sync().catch(()=>{});});setInterval(()=>{if(navigator.onLine&&this.user)this.sync().catch(()=>{});},15000);}
   cacheKey(path){return 'cache:'+this.user.id+':'+path;}
   async raw(path,method='GET',data,key){const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);let response;
-    try{response=await fetch('/api/v1'+path,{method,signal:controller.signal,credentials:'same-origin',cache:'no-store',headers:{...(this.user&&!path.startsWith('/auth/')?{'X-Impavidus-Account':this.user.id}:{}),...(method==='GET'?{}:{'Content-Type':'application/json','X-CSRF-Token':this.csrf||'',...(key?{'Idempotency-Key':key}:{})})},body:method==='GET'?undefined:JSON.stringify(data||{})});this.connected=true;}catch{this.connected=false;throw new ApiError(0,'Nincs kapcsolat a szerverrel.','network');}finally{clearTimeout(timeout);}
-    let result;try{result=await response.json();}catch{throw new ApiError(0,'A válasz nem érkezett meg teljesen. A mentés újraküldhető.','network');}if(!response.ok)throw new ApiError(response.status,result.detail||'A kérés nem sikerült.',result.code);return result;
+    try{
+      try{response=await fetch('/api/v1'+path,{method,signal:controller.signal,credentials:'same-origin',cache:'no-store',headers:{...(this.user&&!path.startsWith('/auth/')?{'X-Impavidus-Account':this.user.id}:{}),...(method==='GET'?{}:{'Content-Type':'application/json','X-CSRF-Token':this.csrf||'',...(key?{'Idempotency-Key':key}:{})})},body:method==='GET'?undefined:JSON.stringify(data||{})});this.connected=true;}catch{this.connected=false;throw new ApiError(0,'Nincs kapcsolat a szerverrel.','network');}
+      let result;try{result=await response.json();}catch{this.connected=false;throw new ApiError(0,'A válasz nem érkezett meg teljesen. A mentés újraküldhető.','network');}if(!response.ok)throw new ApiError(response.status,result.detail||'A kérés nem sikerült.',result.code);return result;
+    }finally{clearTimeout(timeout);}
   }
   async request(path,method='GET',data){if(method!=='GET')this.lastPending=false;
     if(path.startsWith('/auth/')){
