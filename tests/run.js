@@ -14,3 +14,4 @@ require('./step4.test');
 require('./offline.test');
 require('./restore.test');
 require('./pwa.test');
+require('./mobile-proxy.test');

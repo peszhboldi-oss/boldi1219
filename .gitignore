@@ -11,3 +11,5 @@ backups/
 data/
 dist/
 test-results/
+tools/cloudflared.exe
+MOBIL_CIM.txt
