@@ -7,7 +7,7 @@ index.html + frontend/app.js + styles.css
         ↓ Repository.request / saveSet (same-origin fetch)
 backend/server.js → app.js → auth.js / validation.js / metrics.js
         ↓ Store (paraméterezett lekérdezés, tranzakció, revízió)
-data/impavidus.sqlite ← db/sqlite/001,002 migrációk
+data/impavidus.sqlite ← db/sqlite/001,002,003 migrációk
 ```
 
 ## Adatbázis-döntés
@@ -18,9 +18,9 @@ A `db/migrations/001_initial_schema.sql` a korábbi PostgreSQL terv, nem az aktu
 
 ## Fiókok és jogosultságok
 
-Az első edző a helyi üres adatbázisban létrehozza saját fiókját. A kliens létrehozásakor még nincs kliensjelszó: profil, kliensfiók és edzői kapcsolat keletkezik. A 24 órás, egyszer használható meghívóval a kliens saját fiókot aktivál. A szerep és a kapcsolat minden adatvégponton szerveroldali ellenőrzést kap. Idegen kliensre 404 válasz érkezik; az edző a kliens tényadatait nem írhatja.
+Az első edző a helyi üres adatbázisban létrehozza saját fiókját. Az edző a kliens létrehozásakor megadja a felhasználónevet és jelszót: a profil, használható kliensfiók és edzői kapcsolat egyetlen tranzakcióban keletkezik. A kliens közvetlenül belép, az edző a hozzá rendelt kliens belépési adatait később is módosíthatja. A szerep és a kapcsolat minden adatvégponton szerveroldali ellenőrzést kap. Idegen kliensre 404 válasz érkezik; az edző a kliens tényadatait nem írhatja.
 
-A régi jelszó nélküli névválasztást a harmadik lépés kifejezett hitelesítési követelménye felváltotta. Az archiválás adatot nem töröl, de a kliens munkameneteit és meghívóit visszavonja. A visszaállítás ismét engedi a belépést, korábbi cookie-t nem aktivál újra.
+A régi jelszó nélküli névválasztást a harmadik lépés kifejezett hitelesítési követelménye felváltotta. Az archiválás adatot nem töröl, de a kliens munkameneteit visszavonja. A visszaállítás ismét engedi a belépést, korábbi cookie-t nem aktivál újra.
 
 ## Terv, edzés és statisztika
 

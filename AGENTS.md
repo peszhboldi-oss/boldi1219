@@ -4,7 +4,7 @@ Futtatás: Node.js 24+, `node server.js` → http://127.0.0.1:8082 vagy Windows 
 
 ## Termékszabályok (nem módosíthatók)
 - Sötét, bordó akcentusú, minimalista design; nincs gamifikáció, AI, chat, értesítés, rest timer.
-- A harmadik lépés szerveroldali hitelesítési követelménye felváltotta a régi jelszó nélküli demóbelépést: edzői fiók, egyszer használható kliensmeghívó, HttpOnly session, CSRF és adatbázisból ellenőrzött hozzárendelés szükséges.
+- A harmadik lépés szerveroldali hitelesítési követelménye felváltotta a régi jelszó nélküli demóbelépést: edzői fiók, felhasználónév és jelszó, edző által létrehozott kliensfiók, HttpOnly session, CSRF és adatbázisból ellenőrzött hozzárendelés szükséges.
 - **Terv ≠ tény.** Üres tényadatot soha nem becslünk a tervből. Az edző nem írhatja át a kliens tényadatait.
 - Bemelegítő sorozat nem számít nehéz szettnek. Tonna = tény kg × tény ismétlés. RPE 6–10.
 - **Kitöltött nap** = van kajanapló-bejegyzés ÉS van edzésbejegyzés (explicit „Pihenőnap" is az). Gyógyszer és fotó nem számít.

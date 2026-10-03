@@ -1,7 +1,7 @@
 'use strict';
-const {randomUUID,randomBytes}=require('node:crypto');
+const {randomUUID}=require('node:crypto');
 const {Store}=require('./store');
-const {createAuth}=require('./auth');
+const {createAuth,passwordHash}=require('./auth');
 const V=require('./validation'),M=require('./metrics');
 const API_PREFIX='/api/v1';
 function sendProblem(res,status,title,detail,code) {res.writeHead(status,{'content-type':'application/problem+json; charset=utf-8'});res.end(JSON.stringify({type:`https://impavidus.local/problems/${code}`,title,status,detail,code}));}
@@ -47,10 +47,9 @@ function createApi({store=new Store(),secure=false,timeZone='Europe/Budapest',lo
       if(['health','ready'].includes(p[0])&&method==='GET'){store.get('SELECT 1');return json(res,{status:'ok',database:'sqlite',authentication:'sessions',timeZone,version:3});}
       const u=auth.session(req),b=method==='GET'?{}:(auth.mutation(req,u),await body(req));
       if(p[0]==='auth'){
-        if(method==='GET'&&p[1]==='session')return json(res,{user:u?{id:u.id,email:u.email,role:u.role,client_id:u.client_id,csrf:u.csrf}:null,setupRequired:!store.get('SELECT 1 FROM accounts WHERE role IN (\'coach\',\'admin\')'),today:today()});
+        if(method==='GET'&&p[1]==='session')return json(res,{user:u?{id:u.id,username:u.username,role:u.role,client_id:u.client_id,csrf:u.csrf}:null,setupRequired:!store.get('SELECT 1 FROM accounts WHERE role IN (\'coach\',\'admin\')'),today:today()});
         if(method==='POST'&&p[1]==='setup')return json(res,auth.setup(res,b),201);
         if(method==='POST'&&p[1]==='login')return json(res,auth.login(req,res,b));
-        if(method==='POST'&&p[1]==='redeem')return json(res,auth.redeem(res,b),201);
         if(method==='POST'&&p[1]==='logout'){if(u)store.run('DELETE FROM sessions WHERE token_hash=?',u.token_hash);res.setHeader('set-cookie',`il_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure?'; Secure':''}`);return json(res,{ok:true});}
         V.fail('Nincs ilyen belépési művelet.',404,'not-found');
       }
@@ -69,13 +68,13 @@ function createApi({store=new Store(),secure=false,timeZone='Europe/Budapest',lo
       if(p[0]!=='clients')V.fail('Nincs ilyen API-útvonal.',404,'not-found');
       if(!p[1]){
         if(method==='GET'){const rows=u.role==='client'?store.all('SELECT * FROM clients WHERE account_id=?',u.id):u.role==='admin'?store.all('SELECT * FROM clients ORDER BY name'):store.all('SELECT c.* FROM clients c JOIN assignments a ON a.client_id=c.id WHERE a.coach_id=? AND a.active=1 ORDER BY c.name',u.id);return json(res,rows.map(c=>({...safe(c),metrics:metrics(c)})));}
-        if(method==='POST'){coach(u);const c=V.profile(b),id=randomUUID(),aid=randomUUID();if(c.start_date>today())V.fail('A kezdődátum legfeljebb a mai nap lehet.');store.transaction(()=>{store.run('INSERT INTO accounts VALUES(?,NULL,NULL,\'client\',1,?)',aid,now());store.run('INSERT INTO clients(id,account_id,name,starting_weight,height,target_weight,goal,phase,start_date,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',id,aid,c.name,c.starting_weight,c.height,c.target_weight,c.goal,c.phase,c.start_date,now(),now());store.run('INSERT INTO assignments VALUES(?,?,1)',u.id,id);rev('client',id,u,null,c);});const row=store.get('SELECT * FROM clients WHERE id=?',id);return json(res,{...safe(row),metrics:metrics(row)},201);}
+        if(method==='POST'){coach(u);const c=V.profile(b),id=randomUUID(),aid=randomUUID(),username=V.username(b.username),password=passwordHash(V.password(b.password));if(c.start_date>today())V.fail('A kezdődátum legfeljebb a mai nap lehet.');store.transaction(()=>{store.run('INSERT INTO accounts(id,username,password_hash,role,active,created_at) VALUES(?,?,?,\'client\',1,?)',aid,username,password,now());store.run('INSERT INTO clients(id,account_id,name,starting_weight,height,target_weight,goal,phase,start_date,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',id,aid,c.name,c.starting_weight,c.height,c.target_weight,c.goal,c.phase,c.start_date,now(),now());store.run('INSERT INTO assignments VALUES(?,?,1)',u.id,id);rev('client',id,u,null,c);});const row=store.get('SELECT * FROM clients WHERE id=?',id);return json(res,{...safe(row),metrics:metrics(row)},201);}
       }
       const cid=p[1],c=access(u,cid),resource=p[2],id=p[3];
       if(!resource){
         if(method==='GET')return json(res,{...safe(c),metrics:metrics(c)});
         if(method==='PATCH'){coach(u);editable(c);V.version(b,c);const n=V.profile(b);if(n.start_date>today())V.fail('A kezdődátum legfeljebb a mai nap lehet.');store.transaction(()=>{store.run('UPDATE clients SET name=?,starting_weight=?,height=?,target_weight=?,goal=?,phase=?,start_date=?,version=version+1,updated_at=? WHERE id=?',n.name,n.starting_weight,n.height,n.target_weight,n.goal,n.phase,n.start_date,now(),cid);rev('client',cid,u,safe(c),n);});const row=store.get('SELECT * FROM clients WHERE id=?',cid);return json(res,{...safe(row),metrics:metrics(row)});}
-        if(method==='DELETE'){coach(u);V.version(b,c);store.transaction(()=>{store.run('UPDATE clients SET archived_at=?,version=version+1 WHERE id=?',now(),cid);store.run('UPDATE accounts SET active=0 WHERE id=?',c.account_id);store.run('DELETE FROM sessions WHERE account_id=?',c.account_id);store.run('UPDATE invitations SET used_at=? WHERE client_id=? AND used_at IS NULL',now(),cid);rev('client',cid,u,safe(c),{archived:true});});return json(res,{ok:true});}
+        if(method==='DELETE'){coach(u);V.version(b,c);store.transaction(()=>{store.run('UPDATE clients SET archived_at=?,version=version+1 WHERE id=?',now(),cid);store.run('UPDATE accounts SET active=0 WHERE id=?',c.account_id);store.run('DELETE FROM sessions WHERE account_id=?',c.account_id);rev('client',cid,u,safe(c),{archived:true});});return json(res,{ok:true});}
       }
       if(resource==='restore'&&method==='POST'){coach(u);store.transaction(()=>{store.run('UPDATE clients SET archived_at=NULL,version=version+1 WHERE id=?',cid);store.run('UPDATE accounts SET active=1 WHERE id=?',c.account_id);rev('client',cid,u,safe(c),{archived:false});});return json(res,{ok:true});}
       if(resource==='preferences'&&method==='PATCH'){coach(u);editable(c);V.version(b,c);const preferences={blood_pressure:V.bool(b.blood_pressure),blood_glucose:V.bool(b.blood_glucose),labs:V.bool(b.labs)};store.transaction(()=>{store.run('UPDATE clients SET preferences_json=?,version=version+1 WHERE id=?',JSON.stringify(preferences),cid);rev('preferences',cid,u,JSON.parse(c.preferences_json),preferences);});return json(res,{ok:true});}
@@ -83,7 +82,17 @@ function createApi({store=new Store(),secure=false,timeZone='Europe/Budapest',lo
         if(method==='GET'){if(!c.avatar)V.fail('Nincs profilkép.',404,'not-found');res.writeHead(200,{'content-type':c.avatar_type,'content-disposition':'inline','content-length':c.avatar.length,'content-security-policy':"default-src 'none'; sandbox"});return res.end(Buffer.from(c.avatar));}
         editable(c);V.version(b,c);store.transaction(()=>{if(method==='POST'){const img=V.image(b.base64);store.run('UPDATE clients SET avatar=?,avatar_type=?,version=version+1 WHERE id=?',img.bytes,img.type,cid);rev('avatar',cid,u,{present:!!c.avatar},{present:true,type:img.type});}else if(method==='DELETE'){store.run('UPDATE clients SET avatar=NULL,avatar_type=NULL,version=version+1 WHERE id=?',cid);rev('avatar',cid,u,{present:!!c.avatar},{present:false});}else V.fail('Nincs ilyen művelet.',405);});return json(res,{ok:true});
       }
-      if(resource==='access'&&method==='POST'){coach(u);editable(c);if(store.get('SELECT password_hash FROM accounts WHERE id=?',c.account_id)?.password_hash)V.fail('A kliens már rendelkezik belépéssel. Fiókhelyreállítás még nincs.',409,'account-exists');const code=randomBytes(24).toString('hex'),expires=new Date(Date.now()+86400000).toISOString();store.transaction(()=>{store.run('UPDATE invitations SET used_at=? WHERE client_id=? AND used_at IS NULL',now(),cid);store.run('INSERT INTO invitations VALUES(?,?,?,NULL)',auth.hash(code),cid,expires);rev('invitation',cid,u,null,{expires_at:expires});});return json(res,{code,expires_at:expires},201);}
+      if(resource==='access'){
+        coach(u);const account=store.get('SELECT username,password_hash FROM accounts WHERE id=?',c.account_id);
+        if(method==='GET')return json(res,{username:account.username||'',has_password:!!account.password_hash,version:c.version});
+        if(method==='POST'){editable(c);V.version(b,c);const username=V.username(b.username),changedPassword=b.password!=null&&b.password!=='';
+          if(!account.password_hash&&!changedPassword)V.fail('A kliens belépéséhez jelszó szükséges.');
+          const password=changedPassword?passwordHash(V.password(b.password)):account.password_hash;
+          store.transaction(()=>{store.run('UPDATE accounts SET username=?,password_hash=? WHERE id=?',username,password,c.account_id);store.run('DELETE FROM sessions WHERE account_id=?',c.account_id);store.run('UPDATE clients SET version=version+1,updated_at=? WHERE id=?',now(),cid);rev('account',cid,u,{username:account.username},{username,password_changed:changedPassword});});
+          return json(res,{username,has_password:true});
+        }
+        V.fail('Nincs ilyen belépési művelet.',405,'method-not-allowed');
+      }
       if(resource==='notes'){
         if(method==='GET')return json(res,store.all('SELECT id,text,created_at,author_id FROM notes WHERE client_id=? AND archived_at IS NULL ORDER BY created_at DESC',cid));coach(u);editable(c);
         if(method==='POST'){const text=V.text(b.text,'Megjegyzés',4000,true),nid=randomUUID();store.transaction(()=>{store.run('INSERT INTO notes VALUES(?,?,?,?,?,NULL)',nid,cid,u.id,text,now());rev('note',nid,u,null,{text});});return json(res,{id:nid,text},201);}

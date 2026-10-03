@@ -9,3 +9,4 @@ require('./metrics.test');
 require('./integration.test');
 require('./wger-import.test');
 require('./auth.test');
+require('./username.test');

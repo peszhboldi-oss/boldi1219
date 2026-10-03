@@ -10,7 +10,7 @@
 | Módosítás megmarad | HTTP patch → új GET, továbbá mentésből új Store és böngészős reload |
 | Új gyakorlat | HTTP create; duplikáció/hibás kategória elutasítás; böngészős űrlap |
 | Új terv / hozzárendelés | HTTP create, client FK; böngészős tervszerkesztő két sorozattal |
-| Kliens saját terve | Meghívó aktiválás, saját plans olvasás; idegen kliens 404 |
+| Kliens saját terve | Közvetlen felhasználónév/jelszó belépés, saját plans olvasás; idegen kliens 404 |
 | Ténysorozat / adatbázis | HTTP set patch, SQL-visszaolvasás, GET, backupból visszaolvasás; mobilos mentés |
 | Korábbi tényértékek | Második edzés previous mező és böngészős előző eredmény |
 | Heti statisztika | 20×10 bemelegítő + 60×8 munkasorozat → 680 kg, 1 keménysorozat, RPE (6+8)/2 = 7 |
@@ -33,3 +33,7 @@ További invariánsok: hétváltás, második hiány, nyitott/lezárt mai nap, h
 A végrehajtott böngészős ellenőrzések a Codex böngészőjével, elkülönített `work/browser-test.sqlite` adattáron és `127.0.0.1:8081` tesztpéldányon történtek. Ezek nem az `npm test` automatikus futás részei. Újrafuttatáskor a fenti tesztmátrixot végig kell járni, saját fiktív fiókokkal. A tényleges telefonos hardver és Safari nincs ellenőrizve.
 
 A build, a szintaktikai vizsgálat és a backend integrációs tesztek külön-külön ellenőrizhetők. A mentés-visszaolvasás integrációs tesztelt; éles gép teljes helyreállítási gyakorlatát nem helyettesíti.
+
+## Felhasználónév-alapú belépés
+
+`tests/username.test.js`: a régi SQLite adatbázis adat-, jelszóhash- és munkamenetmegőrző átállása; kis-/nagybetűtől független egyediség; tranzakciós klienslétrehozás; hozzárendelés és szerepellenőrzés; üres jelszómező megtartása; jelszócsere utáni session-visszavonás; verzióütközés; jelszómentes revíziók.

@@ -16,7 +16,7 @@
 
 Alapból csak loopback HTTP-t használunk. A localhost PWA környezet nem egyenlő egy telepített, interneten biztonságosan elérhető szolgáltatással. A Host allowlist localhost/127.0.0.1/[::1] értékeket enged, illetve a konfigurált `PUBLIC_ORIGIN` domainjét. Az első-edző bootstrap production módban letiltott; éles forgalom előtt az edzőt helyben vagy a szerver CLI-jével kell inicializálni.
 
-Élesítéshez: HTTPS reverse proxy változatlan Host-tal, Secure cookie, megfelelő tűzfal és szerverfiók-jogok, teljes lemeztitkosítás, titkosított külső mentés és visszaállítási gyakorlat, adatmegőrzési/törlési folyamat, naplókezelés. Többgépes íráshoz PostgreSQL-adapter és privát objektumtár. Jelenleg nincs MFA, jelszóhelyreállítás, e-mail-verifikáció vagy automatizált mentés. Ezek nem kész funkciók.
+Élesítéshez: HTTPS reverse proxy változatlan Host-tal, Secure cookie, megfelelő tűzfal és szerverfiók-jogok, teljes lemeztitkosítás, titkosított külső mentés és visszaállítási gyakorlat, adatmegőrzési/törlési folyamat, naplókezelés. Többgépes íráshoz PostgreSQL-adapter és privát objektumtár. Az edző csak a hozzá rendelt kliens felhasználónevét és jelszavát módosíthatja. Ez visszavonja a kliens munkameneteit; a változásnapló nem tárol jelszót vagy jelszóhasht. Jelenleg nincs MFA, önkiszolgáló fiókhelyreállítás vagy automatizált mentés. Ezek nem kész funkciók.
 
 ## Mentés és visszaállítás
 

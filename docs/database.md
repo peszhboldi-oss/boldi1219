@@ -4,11 +4,10 @@
 
 | Tábla | Tartalom és kapcsolat |
 |---|---|
-| `accounts` | UUID, egyedi e-mail, scrypt-hash, client/coach/admin szerep, aktív állapot |
+| `accounts` | UUID, kis-/nagybetűtől független egyedi felhasználónév, scrypt-hash, client/coach/admin szerep, aktív állapot |
 | `clients` | Egy kliensfiókhoz egy profil; alap-/célsúly, magasság, cél, fázis, kezdés, archiválás, profilkép BLOB, preferenciák, monoton maximum-streak, verzió |
 | `assignments` | Edzői account UUID + kliens UUID, aktív kapcsolat; objektumjogosultság alapja |
 | `sessions` | Opaque token SHA-256 hashe, account, CSRF token, lejárat; nincs nyers session token |
-| `invitations` | Meghívó SHA-256 hashe, kliens, lejárat, felhasználási idő |
 | `exercises` | Név, elsődleges izomcsoport szövege, eszköz, kategória, aktív állapot, importforrás/UUID/licenc/szerző/URL, verzió |
 | `plans` | Kliens/edző, név, kezdődátum, ciklus, jegyzet, rendezett exercise/set JSON, aktív állapot, verzió |
 | `workouts` | Kliens/terv/verzió, nap, név, kezdés/vég, jegyzet, in_progress/completed/archived, verzió |
@@ -25,6 +24,8 @@
 
 1. `001_core.sql`: az aktív táblák, indexek, szerep-/kategória-/RPE-korlátok, egyedi aktív edzés/nap és pihenő/nap.
 2. `002_snapshots_and_preferences.sql`: tervverzió az edzésben, gyakorlatjegyzet pillanatfelvétele, alapból kikapcsolt vérnyomás/vércukor/vérkép kapcsolók.
+
+3. `003_username_auth.sql`: email → username oszlopátnevezés az adatok megtartásával, egyedi normalizált felhasználónév-index és a már nem használt invitations tábla eltávolítása. A meglévő jelszóhashek és munkamenetek megmaradnak.
 
 A történeti PostgreSQL séma `db/migrations/001_initial_schema.sql` alatt változatlanul megmaradt. Nem futott PostgreSQL-en, és nem ez hozza létre az aktuális SQLite táblákat.
 

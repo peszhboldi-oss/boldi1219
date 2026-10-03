@@ -12,3 +12,6 @@ input,select,textarea{width:100%;background:#1b171b;border:1px solid #43353d;bor
 @media(max-width:760px){.chart text{font-size:20px}.muscle-row{grid-template-columns:90px minmax(0,1fr) 20px;gap:10px;font-size:12px}}
 @media(max-width:760px){.mobile-brand{display:block;font-size:10px;color:var(--mu);line-height:1.4}.mobile-brand small{display:block;font-size:8px;letter-spacing:1px;color:var(--tx)}.topbar .initials{display:none}.topbar .client-switch{max-width:150px!important}.topbar>.row{gap:8px}.set-target .check{font-size:8px;flex-direction:column;gap:4px;justify-content:center}.set-target .check input{margin:0}.set-target{grid-template-columns:20px repeat(3,minmax(0,1fr)) 48px 36px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.brand{display:flex;align-items:center;gap:12px}.brand img{float:none;margin:0}.brand-name{line-height:1.5}
+@media(max-width:760px){.mobile-brand{font-size:9px;letter-spacing:1px;color:var(--tx)}}

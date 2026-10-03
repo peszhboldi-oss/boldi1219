@@ -8,7 +8,7 @@ Dátum: 2026-10-03. Az eredeti `impavidus-lab` repository folytatása. Kiinduló
 |---|---|
 | Edzői klienslista | Saját hozzárendelt kliensek; név/kép/valós aktuális mérés/utolsó aktivitás/aktuális terv/heti teljesített napok; keresés, archiváltak szűrése |
 | Profil | Név, kezdősúly, magasság, cél, célsúly, ciklus, kezdődátum; edzői szerkesztés, privát profilkép, fejlődési megjegyzések, archiválás/visszaállítás |
-| Fiók | Első edzői setup, e-mail/jelszavas belépés, egyszer használható 24 órás kliensmeghívó, logout és session visszavonás |
+| Fiók | Első edzői setup, felhasználónév/jelszavas belépés, közvetlen edzői kliensfiók-létrehozás, logout és session visszavonás |
 | Gyakorlat | Saját katalógus; keresés, létrehozás, szerkesztés, inaktiválás; licencelt JSON import duplikációellenőrzéssel |
 | Edzésterv | Klienshez rendelve; név/dátum/ciklus/jegyzet; gyakorlatok sorrendje, sorozatonkénti célok, sorozatok hozzáadása/törlése, másolás másik saját klienshez, archiválás, történet |
 | Edzésnapló | Terv pillanatfelvétele, üres ténymezők; dátum/név/időpontok/időtartam/jegyzet/állapot; ténysorozat, extra gyakorlat/sorozat, RPE, bemelegítés, opcionális pihenőadat; lezárás/újranyitás/archiválás |
@@ -22,7 +22,7 @@ Az edző tényadatot nem módosíthat. A kliens kizárólag saját naplóit írh
 
 ## 2. Technikai döntések
 
-- Egyetlen vanilla HTML/CSS/JS frontend, ugyanazon Node API-val. A korábbi bordó–fekete vizuális irány, Alex team márkajelzés és tíz menücél megmaradt; mobilmenü és nagy érintési mezők készültek.
+- Egyetlen vanilla HTML/CSS/JS frontend, ugyanazon Node API-val. A korábbi bordó–fekete vizuális irány, IMPAVIDUS LAB márkajelzés és tíz menücél megmaradt; mobilmenü és nagy érintési mezők készültek.
 - Node **24+**, beépített `node:sqlite`, új függőség telepítése nélkül. A helyi gépen nincs beállított PostgreSQL, ezért a korábbi Store/API határán működő SQLite-adapter készült. A PostgreSQL-séma megmaradt tervként; PostgreSQL-kapcsolatot nem állítunk működőnek.
 - A terv rendezett JSON, a tényedzés és sorozatok külön relációs rekordok. A snapshot tervverziót, nevet, izomcsoportot, eszközt és gyakorlatjegyzetet őriz. Az üres ténysúly/ismétlés/RPE NULL.
 - Explicit `completed` sorozatok számítanak. Nem bemelegítő, ténysúlyt és ismétlést tartalmazó súlyzós/saját testsúlyos sorozat keménysorozat. Súlyzós volumen = tényleges kg × ismétlés, bemelegítéssel együtt; saját testsúly/kardió nem növeli. Saját testsúlynál 0 kg hozzáadott súly explicit valós adat, testtömeget nem következtetünk. Kardió perc/km külön. Átlag-RPE csak rögzített RPE-kből, a bemelegítő RPE-jével együtt.
@@ -121,3 +121,7 @@ A napok egy fejlesztő durva becslései, nem határidőígéretek. A pontosítá
 6. Részletes ételkatalógus, grammonkénti étrend, XLSX/PDF-export; a további modulok tartományonkénti bővítése.
 
 Pull request nem hozható létre automatikusan: a helyi repositoryhoz nincs Git remote beállítva. A külön ág és commit helyben ellenőrizhető; kiadási ZIP és részletes jelentés készül.
+
+## Belépési mód frissítése
+
+A legújabb módosítás megszünteti a meghívókódos aktiválást és az e-mail-mezőt. A `003_username_auth.sql` adatmegőrző migráció bevezeti a felhasználónév-alapú hitelesítést. Az edző a saját kliensei belépési adatait az adatlapon állíthatja. Az új állapothoz a README és az aktuális teszteredmény tartozik; a fenti korábbi ellenőrzési beszámoló történeti feljegyzés.
