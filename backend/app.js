@@ -1,66 +1,161 @@
 'use strict';
-
-const { randomUUID } = require('node:crypto');
-
-const API_PREFIX = '/api/v1';
-
-function sendProblem(response, status, title, detail, code) {
-  response.writeHead(status, { 'content-type': 'application/problem+json; charset=utf-8' });
-  response.end(JSON.stringify({
-    type: `https://impavidus.local/problems/${code}`,
-    title,
-    status,
-    detail,
-    code,
-  }));
-}
-
-function createApi() {
-  return async function api(request, response) {
-    const requestId = randomUUID();
-    response.setHeader('x-request-id', requestId);
-    response.setHeader('cache-control', 'no-store');
-
-    let pathname;
+const {randomUUID,randomBytes}=require('node:crypto');
+const {Store}=require('./store');
+const {createAuth}=require('./auth');
+const V=require('./validation'),M=require('./metrics');
+const API_PREFIX='/api/v1';
+function sendProblem(res,status,title,detail,code) {res.writeHead(status,{'content-type':'application/problem+json; charset=utf-8'});res.end(JSON.stringify({type:`https://impavidus.local/problems/${code}`,title,status,detail,code}));}
+function json(res,data,status=200) {res.writeHead(status,{'content-type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));}
+async function body(req) {let size=0,chunks=[];for await(const c of req){size+=c.length;if(size>1800000)V.fail('A kérés túl nagy.',413,'body-too-large');chunks.push(c);}try{const b=JSON.parse(Buffer.concat(chunks).toString());if(!b||typeof b!=='object'||Array.isArray(b))V.fail('JSON-objektum szükséges.');return b;}catch(e){if(e instanceof V.Problem)throw e;V.fail('Hibás JSON.',400,'json');}}
+function createApi({store=new Store(),secure=false,timeZone='Europe/Budapest',logger=console}={}) {
+  const auth=createAuth(store,{secure,allowSetup:process.env.NODE_ENV!=='production'}),now=()=>new Date().toISOString(),today=()=>M.today(timeZone);
+  const coach=u=>{if(!['coach','admin'].includes(u.role))V.fail('Edzői jogosultság szükséges.',403,'forbidden');};
+  const editable=c=>{if(c.archived_at)V.fail('Az archivált kliens adatai csak olvashatók.',409,'archived');};
+  const day=x=>{const d=V.date(x);if(d>today())V.fail('Tényadat nem rögzíthető jövőbeli napra.');return d;};
+  const rev=(entity,id,u,before,after)=>store.revision(entity,id,u.id,before,after);
+  function access(u,id,facts=false) {
+    const c=store.get('SELECT * FROM clients WHERE id=?',id);
+    if(!c||!(u.role==='admin'||(u.role==='client'&&c.account_id===u.id)||(u.role==='coach'&&store.get('SELECT 1 FROM assignments WHERE coach_id=? AND client_id=? AND active=1',u.id,id))))V.fail('A kliens nem található.',404,'not-found');
+    if(facts&&u.role!=='client')V.fail('Tényadatot csak a kliens rögzíthet.',403,'facts-read-only');return c;
+  }
+  function safe(c){const {avatar,preferences_json,...rest}=c;return {...rest,preferences:JSON.parse(preferences_json),has_avatar:!!avatar};}
+  function data(cid){return {workouts:store.all('SELECT * FROM workouts WHERE client_id=?',cid),sets:store.all('SELECT s.* FROM workout_sets s JOIN workouts w ON w.id=s.workout_id WHERE w.client_id=?',cid)};}
+  function workoutList(cid){return store.all('SELECT w.*,(SELECT count(*) FROM workout_sets WHERE workout_id=w.id AND completed=1) AS completed_sets FROM workouts w WHERE client_id=? ORDER BY date DESC,created_at DESC',cid);}
+  function metrics(c) {
+    const {workouts,sets}=data(c.id),food=store.all('SELECT date FROM food_logs WHERE client_id=? AND archived_at IS NULL',c.id).map(x=>x.date),rest=store.all('SELECT date FROM rest_days WHERE client_id=? AND archived_at IS NULL',c.id).map(x=>x.date),work=workouts.filter(w=>w.status!=='archived'&&sets.some(s=>s.workout_id===w.id&&s.completed)).map(x=>x.date),closed=store.all('SELECT date FROM daily_logs WHERE client_id=? AND closed_at IS NOT NULL',c.id).map(x=>x.date);
+    const activity=M.streak({startDate:c.start_date,today:today(),foodDates:food,workoutDates:work,restDates:rest,closedDates:closed,previousLongest:c.longest_streak});
+    if(activity.longest>c.longest_streak)store.run('UPDATE clients SET longest_streak=? WHERE id=?',activity.longest,c.id);
+    const measure=store.get('SELECT * FROM measurements WHERE client_id=? ORDER BY date DESC,created_at DESC,rowid DESC LIMIT 1',c.id),weight=measure?.weight??null,delta=weight!=null&&c.starting_weight!=null?weight-c.starting_weight:null;
+    return {current_weight:weight,weight_date:measure?.date||null,weight_delta:delta,weight_percent:delta!=null?delta/c.starting_weight*100:null,activity,last_activity:[...food,...rest,...work,...store.all('SELECT date FROM measurements WHERE client_id=?',c.id).map(x=>x.date)].sort().at(-1)||null,current_plan:store.get('SELECT id,name FROM plans WHERE client_id=? AND active=1 ORDER BY updated_at DESC,rowid DESC LIMIT 1',c.id)||null,latest_note:store.get('SELECT text,created_at FROM notes WHERE client_id=? AND archived_at IS NULL ORDER BY created_at DESC,rowid DESC LIMIT 1',c.id)||null,weekly:M.stats(workouts,sets,M.monday(today()),M.shift(M.monday(today()),6))};
+  }
+  function plan(p){return p?{...p,exercises:JSON.parse(p.exercises_json),exercises_json:undefined}:null;}
+  function validatePlan(b) {
+    const result={name:V.text(b.name,'Terv neve',160,true),start_date:V.date(b.start_date),phase:V.text(b.phase,'Ciklus',120),note:V.text(b.note,'Megjegyzés',4000)};
+    if(!Array.isArray(b.exercises)||b.exercises.length<1||b.exercises.length>40)V.fail('A tervhez 1–40 gyakorlat szükséges.');const seen=new Set();
+    result.exercises=b.exercises.map((e,position)=>{const ex=store.get('SELECT * FROM exercises WHERE id=?',V.text(e.exercise_id,'Gyakorlat',50,true));if(!ex||!ex.active)V.fail('Csak aktív gyakorlat rendelhető tervhez.');if(seen.has(ex.id))V.fail('Egy gyakorlat csak egyszer szerepeljen a tervben.');seen.add(ex.id);if(!Array.isArray(e.sets)||!e.sets.length||e.sets.length>30)V.fail('Gyakorlatonként 1–30 sorozat szükséges.');return {exercise_id:ex.id,name:ex.name,muscle:ex.muscle,equipment:ex.equipment,category:ex.category,position,note:V.text(e.note,'Gyakorlatjegyzet',2000),sets:e.sets.map((s,i)=>({number:i+1,planned_reps:V.number(s.planned_reps,'Tervezett ismétlés',1,200,false,true),planned_weight:V.number(s.planned_weight,'Tervezett súly',0,1000),planned_rpe:V.number(s.planned_rpe,'RPE-cél',6,10),warmup:V.bool(s.warmup)}))};});return result;
+  }
+  function workout(u,cid,id) {
+    access(u,cid);const w=store.get('SELECT * FROM workouts WHERE id=? AND client_id=?',id,cid);if(!w)V.fail('Az edzés nem található.',404,'not-found');const sets=store.all('SELECT * FROM workout_sets WHERE workout_id=? ORDER BY position,number',id);
+    for(const s of sets)s.previous=store.get('SELECT s.actual_reps,s.actual_weight,s.rpe,s.duration_minutes,s.distance_km,w.date FROM workout_sets s JOIN workouts w ON w.id=s.workout_id WHERE w.client_id=? AND w.date<? AND w.status<>\'archived\' AND s.exercise_id=? AND s.number=? AND s.completed=1 ORDER BY w.date DESC,w.created_at DESC LIMIT 1',cid,w.date,s.exercise_id,s.number)||null;
+    return {...w,duration_minutes:w.started_at&&w.ended_at?Math.round((Date.parse(w.ended_at)-Date.parse(w.started_at))/60000):null,sets,stats:M.stats([w],sets,w.date,w.date)};
+  }
+  return async(req,res)=>{
+    const requestId=randomUUID();res.setHeader('x-request-id',requestId);res.setHeader('cache-control','no-store');
     try {
-      pathname = new URL(request.url, 'http://localhost').pathname;
-    } catch {
-      return sendProblem(response, 400, 'Hibás kérés', 'Az útvonal nem értelmezhető.', 'bad-request');
-    }
-
-    if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'POST') {
-      response.setHeader('allow', 'GET, HEAD, POST');
-      return sendProblem(response, 405, 'Nem támogatott metódus', 'Ez a HTTP metódus nincs engedélyezve.', 'method-not-allowed');
-    }
-
-    if (pathname === `${API_PREFIX}/health` && (request.method === 'GET' || request.method === 'HEAD')) {
-      response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-      return response.end(JSON.stringify({
-        status: 'ok',
-        service: 'impavidus-lab',
-        database: 'not-configured',
-        authentication: 'not-configured',
-        requestId,
-      }));
-    }
-
-    if (pathname === `${API_PREFIX}/ready`) {
-      return sendProblem(response, 503, 'A szolgáltatás még nem kész', 'A PostgreSQL-kapcsolat és a perzisztens adattár nincs bekötve.', 'dependencies-not-configured');
-    }
-
-    if (pathname === `${API_PREFIX}/auth/session`) {
-      if (request.method === 'GET' || request.method === 'HEAD') {
-        return sendProblem(response, 401, 'Hitelesítés szükséges', 'Nincs konfigurált szerveroldali fiók vagy munkamenet.', 'authentication-required');
+      const url=new URL(req.url,'http://localhost'),p=url.pathname.slice(API_PREFIX.length).split('/').filter(Boolean),method=req.method;
+      if(!url.pathname.startsWith(API_PREFIX+'/'))V.fail('Nincs ilyen API.',404,'not-found');if(!['GET','POST','PATCH','DELETE'].includes(method))V.fail('Nem támogatott metódus.',405,'method-not-allowed');
+      if(['health','ready'].includes(p[0])&&method==='GET'){store.get('SELECT 1');return json(res,{status:'ok',database:'sqlite',authentication:'sessions',timeZone,version:3});}
+      const u=auth.session(req),b=method==='GET'?{}:(auth.mutation(req,u),await body(req));
+      if(p[0]==='auth'){
+        if(method==='GET'&&p[1]==='session')return json(res,{user:u?{id:u.id,email:u.email,role:u.role,client_id:u.client_id,csrf:u.csrf}:null,setupRequired:!store.get('SELECT 1 FROM accounts WHERE role IN (\'coach\',\'admin\')'),today:today()});
+        if(method==='POST'&&p[1]==='setup')return json(res,auth.setup(res,b),201);
+        if(method==='POST'&&p[1]==='login')return json(res,auth.login(req,res,b));
+        if(method==='POST'&&p[1]==='redeem')return json(res,auth.redeem(res,b),201);
+        if(method==='POST'&&p[1]==='logout'){if(u)store.run('DELETE FROM sessions WHERE token_hash=?',u.token_hash);res.setHeader('set-cookie',`il_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure?'; Secure':''}`);return json(res,{ok:true});}
+        V.fail('Nincs ilyen belépési művelet.',404,'not-found');
       }
-      return sendProblem(response, 501, 'A hitelesítés nincs bekötve', 'A munkamenet-végpont adatbázist és hitelesítési szolgáltatót igényel.', 'authentication-not-configured');
-    }
-
-    if (pathname.startsWith(`${API_PREFIX}/`)) {
-      return sendProblem(response, 501, 'A végpont még nincs megvalósítva', 'Ez az API-váz nem végez kliensadat-műveletet.', 'endpoint-not-implemented');
-    }
-
-    return sendProblem(response, 404, 'Nem található', 'Nincs ilyen API-útvonal.', 'not-found');
+      if(!u)V.fail('Belépés szükséges.',401,'authentication-required');
+      if(p[0]==='exercises'){
+        if(method==='GET'&&!p[1]){const q=V.text(url.searchParams.get('q'),'Keresés',120);return json(res,store.all('SELECT * FROM exercises WHERE name LIKE ? OR muscle LIKE ? OR equipment LIKE ? ORDER BY name','%'+q+'%','%'+q+'%','%'+q+'%'));}
+        coach(u);
+        if(method==='POST'&&p[1]==='import'){
+          if(!Array.isArray(b.items)||b.items.length>500)V.fail('Legfeljebb 500 importált gyakorlat engedélyezett.');const inserted=[],skipped=[];
+          store.transaction(()=>{for(const item of b.items){const e=V.exercise(item),source=V.text(item.source,'Forrás',100,true),sid=V.text(String(item.source_id||''),'Forrásazonosító',100,true),license=V.text(item.license,'Licenc',100,true),author=V.text(item.author,'Szerző',300,true),sourceUrl=V.text(item.source_url,'Forrás URL',1000,true);if(!['CC0-1.0','CC-BY-4.0'].includes(license)||!/^https:\/\//.test(sourceUrl))V.fail('Az import csak CC0-1.0 vagy CC-BY-4.0 adatot és HTTPS-forrásjelölést fogad.');const found=store.get('SELECT id FROM exercises WHERE (source=? AND source_id=?) OR (lower(name)=lower(?) AND lower(muscle)=lower(?) AND lower(equipment)=lower(?) AND category=?)',source,sid,e.name,e.muscle,e.equipment,e.category);if(found){skipped.push(found.id);continue;}const id=randomUUID();store.run('INSERT INTO exercises(id,name,muscle,equipment,category,active,source,source_id,license,author,source_url) VALUES(?,?,?,?,?,?,?,?,?,?,?)',id,e.name,e.muscle,e.equipment,e.category,e.active,source,sid,license,author,sourceUrl);rev('exercise',id,u,null,{...e,source,source_id:sid,license,author,source_url:sourceUrl});inserted.push(id);}});return json(res,{inserted,skipped},201);
+        }
+        if(method==='POST'&&!p[1]){const e=V.exercise(b),id=randomUUID();store.transaction(()=>{store.run('INSERT INTO exercises(id,name,muscle,equipment,category,active) VALUES(?,?,?,?,?,?)',id,e.name,e.muscle,e.equipment,e.category,e.active);rev('exercise',id,u,null,e);});return json(res,store.get('SELECT * FROM exercises WHERE id=?',id),201);}
+        const old=store.get('SELECT * FROM exercises WHERE id=?',p[1]);if(!old)V.fail('Nincs ilyen gyakorlat.',404,'not-found');
+        if(method==='PATCH'){V.version(b,old);const e=V.exercise(b);store.transaction(()=>{store.run('UPDATE exercises SET name=?,muscle=?,equipment=?,category=?,active=?,version=version+1 WHERE id=?',e.name,e.muscle,e.equipment,e.category,e.active,old.id);rev('exercise',old.id,u,old,e);});return json(res,store.get('SELECT * FROM exercises WHERE id=?',old.id));}
+      }
+      if(p[0]!=='clients')V.fail('Nincs ilyen API-útvonal.',404,'not-found');
+      if(!p[1]){
+        if(method==='GET'){const rows=u.role==='client'?store.all('SELECT * FROM clients WHERE account_id=?',u.id):u.role==='admin'?store.all('SELECT * FROM clients ORDER BY name'):store.all('SELECT c.* FROM clients c JOIN assignments a ON a.client_id=c.id WHERE a.coach_id=? AND a.active=1 ORDER BY c.name',u.id);return json(res,rows.map(c=>({...safe(c),metrics:metrics(c)})));}
+        if(method==='POST'){coach(u);const c=V.profile(b),id=randomUUID(),aid=randomUUID();if(c.start_date>today())V.fail('A kezdődátum legfeljebb a mai nap lehet.');store.transaction(()=>{store.run('INSERT INTO accounts VALUES(?,NULL,NULL,\'client\',1,?)',aid,now());store.run('INSERT INTO clients(id,account_id,name,starting_weight,height,target_weight,goal,phase,start_date,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',id,aid,c.name,c.starting_weight,c.height,c.target_weight,c.goal,c.phase,c.start_date,now(),now());store.run('INSERT INTO assignments VALUES(?,?,1)',u.id,id);rev('client',id,u,null,c);});const row=store.get('SELECT * FROM clients WHERE id=?',id);return json(res,{...safe(row),metrics:metrics(row)},201);}
+      }
+      const cid=p[1],c=access(u,cid),resource=p[2],id=p[3];
+      if(!resource){
+        if(method==='GET')return json(res,{...safe(c),metrics:metrics(c)});
+        if(method==='PATCH'){coach(u);editable(c);V.version(b,c);const n=V.profile(b);if(n.start_date>today())V.fail('A kezdődátum legfeljebb a mai nap lehet.');store.transaction(()=>{store.run('UPDATE clients SET name=?,starting_weight=?,height=?,target_weight=?,goal=?,phase=?,start_date=?,version=version+1,updated_at=? WHERE id=?',n.name,n.starting_weight,n.height,n.target_weight,n.goal,n.phase,n.start_date,now(),cid);rev('client',cid,u,safe(c),n);});const row=store.get('SELECT * FROM clients WHERE id=?',cid);return json(res,{...safe(row),metrics:metrics(row)});}
+        if(method==='DELETE'){coach(u);V.version(b,c);store.transaction(()=>{store.run('UPDATE clients SET archived_at=?,version=version+1 WHERE id=?',now(),cid);store.run('UPDATE accounts SET active=0 WHERE id=?',c.account_id);store.run('DELETE FROM sessions WHERE account_id=?',c.account_id);store.run('UPDATE invitations SET used_at=? WHERE client_id=? AND used_at IS NULL',now(),cid);rev('client',cid,u,safe(c),{archived:true});});return json(res,{ok:true});}
+      }
+      if(resource==='restore'&&method==='POST'){coach(u);store.transaction(()=>{store.run('UPDATE clients SET archived_at=NULL,version=version+1 WHERE id=?',cid);store.run('UPDATE accounts SET active=1 WHERE id=?',c.account_id);rev('client',cid,u,safe(c),{archived:false});});return json(res,{ok:true});}
+      if(resource==='preferences'&&method==='PATCH'){coach(u);editable(c);V.version(b,c);const preferences={blood_pressure:V.bool(b.blood_pressure),blood_glucose:V.bool(b.blood_glucose),labs:V.bool(b.labs)};store.transaction(()=>{store.run('UPDATE clients SET preferences_json=?,version=version+1 WHERE id=?',JSON.stringify(preferences),cid);rev('preferences',cid,u,JSON.parse(c.preferences_json),preferences);});return json(res,{ok:true});}
+      if(resource==='avatar'){
+        if(method==='GET'){if(!c.avatar)V.fail('Nincs profilkép.',404,'not-found');res.writeHead(200,{'content-type':c.avatar_type,'content-disposition':'inline','content-length':c.avatar.length,'content-security-policy':"default-src 'none'; sandbox"});return res.end(Buffer.from(c.avatar));}
+        editable(c);V.version(b,c);store.transaction(()=>{if(method==='POST'){const img=V.image(b.base64);store.run('UPDATE clients SET avatar=?,avatar_type=?,version=version+1 WHERE id=?',img.bytes,img.type,cid);rev('avatar',cid,u,{present:!!c.avatar},{present:true,type:img.type});}else if(method==='DELETE'){store.run('UPDATE clients SET avatar=NULL,avatar_type=NULL,version=version+1 WHERE id=?',cid);rev('avatar',cid,u,{present:!!c.avatar},{present:false});}else V.fail('Nincs ilyen művelet.',405);});return json(res,{ok:true});
+      }
+      if(resource==='access'&&method==='POST'){coach(u);editable(c);if(store.get('SELECT password_hash FROM accounts WHERE id=?',c.account_id)?.password_hash)V.fail('A kliens már rendelkezik belépéssel. Fiókhelyreállítás még nincs.',409,'account-exists');const code=randomBytes(24).toString('hex'),expires=new Date(Date.now()+86400000).toISOString();store.transaction(()=>{store.run('UPDATE invitations SET used_at=? WHERE client_id=? AND used_at IS NULL',now(),cid);store.run('INSERT INTO invitations VALUES(?,?,?,NULL)',auth.hash(code),cid,expires);rev('invitation',cid,u,null,{expires_at:expires});});return json(res,{code,expires_at:expires},201);}
+      if(resource==='notes'){
+        if(method==='GET')return json(res,store.all('SELECT id,text,created_at,author_id FROM notes WHERE client_id=? AND archived_at IS NULL ORDER BY created_at DESC',cid));coach(u);editable(c);
+        if(method==='POST'){const text=V.text(b.text,'Megjegyzés',4000,true),nid=randomUUID();store.transaction(()=>{store.run('INSERT INTO notes VALUES(?,?,?,?,?,NULL)',nid,cid,u.id,text,now());rev('note',nid,u,null,{text});});return json(res,{id:nid,text},201);}
+        if(method==='DELETE'){const old=store.get('SELECT * FROM notes WHERE id=? AND client_id=?',id,cid);if(!old)V.fail('Nincs ilyen megjegyzés.',404);store.transaction(()=>{store.run('UPDATE notes SET archived_at=? WHERE id=?',now(),id);rev('note',id,u,old,{archived:true});});return json(res,{ok:true});}
+      }
+      if(resource==='plans'){
+        if(method==='GET'){if(id){const row=store.get('SELECT * FROM plans WHERE id=? AND client_id=?',id,cid);if(!row)V.fail('Nincs ilyen terv.',404);return json(res,plan(row));}return json(res,store.all('SELECT * FROM plans WHERE client_id=? ORDER BY updated_at DESC',cid).map(plan));}
+        coach(u);editable(c);
+        if(method==='POST'&&!id){const n=validatePlan(b),pid=randomUUID();store.transaction(()=>{store.run('INSERT INTO plans(id,client_id,coach_id,name,start_date,phase,note,exercises_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',pid,cid,u.id,n.name,n.start_date,n.phase,n.note,JSON.stringify(n.exercises),now(),now());rev('plan',pid,u,null,n);});return json(res,plan(store.get('SELECT * FROM plans WHERE id=?',pid)),201);}
+        const old=store.get('SELECT * FROM plans WHERE id=? AND client_id=?',id,cid);if(!old)V.fail('Nincs ilyen terv.',404);
+        if(method==='POST'&&p[4]==='copy'){const target=V.text(b.client_id||cid,'Kliens',50,true);editable(access(u,target));const pid=randomUUID(),name=V.text(b.name||old.name+' — másolat','Terv neve',160,true);store.transaction(()=>{store.run('INSERT INTO plans(id,client_id,coach_id,name,start_date,phase,note,exercises_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',pid,target,u.id,name,old.start_date,old.phase,old.note,old.exercises_json,now(),now());rev('plan',pid,u,null,{...plan(old),id:pid,client_id:target,name});});return json(res,plan(store.get('SELECT * FROM plans WHERE id=?',pid)),201);}
+        V.version(b,old);
+        if(method==='PATCH'){const n=validatePlan(b);store.transaction(()=>{store.run('UPDATE plans SET name=?,start_date=?,phase=?,note=?,exercises_json=?,version=version+1,updated_at=? WHERE id=?',n.name,n.start_date,n.phase,n.note,JSON.stringify(n.exercises),now(),id);rev('plan',id,u,plan(old),n);});return json(res,plan(store.get('SELECT * FROM plans WHERE id=?',id)));}
+        if(method==='DELETE'){store.transaction(()=>{store.run('UPDATE plans SET active=0,version=version+1,updated_at=? WHERE id=?',now(),id);rev('plan',id,u,plan(old),{active:0});});return json(res,{ok:true});}
+      }
+      if(resource==='workouts'){
+        if(method==='GET')return json(res,id?workout(u,cid,id):workoutList(cid));access(u,cid,true);editable(c);
+        if(method==='POST'&&!id){const date=day(b.date),source=store.get('SELECT * FROM plans WHERE id=? AND client_id=? AND active=1',V.text(b.plan_id,'Edzésterv',50,true),cid);if(!source)V.fail('Válassz aktív edzéstervet.');if(date<source.start_date)V.fail('Az edzés nem előzheti meg a terv kezdődátumát.');const wid=randomUUID();store.transaction(()=>{store.run('INSERT INTO workouts(id,client_id,plan_id,date,name,started_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',wid,cid,source.id,date,source.name,date===today()?now():null,now(),now());for(const e of plan(source).exercises)for(const s of e.sets)store.run('INSERT INTO workout_sets(id,workout_id,exercise_id,exercise_name,muscle,equipment,category,position,number,planned_reps,planned_weight,planned_rpe,warmup) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',randomUUID(),wid,e.exercise_id,e.name,e.muscle,e.equipment,e.category,e.position,s.number,s.planned_reps,s.planned_weight,s.planned_rpe,s.warmup?1:0);store.run('UPDATE workouts SET plan_version=? WHERE id=?',source.version,wid);for(const e of plan(source).exercises)store.run('UPDATE workout_sets SET exercise_note=? WHERE workout_id=? AND position=?',e.note,wid,e.position);rev('workout',wid,u,null,{date,plan_id:source.id,plan_version:source.version,name:source.name});});return json(res,workout(u,cid,wid),201);}
+        const old=store.get('SELECT * FROM workouts WHERE id=? AND client_id=?',id,cid);if(!old)V.fail('Nincs ilyen edzés.',404);
+        if(p[4]==='sets'&&!p[5]&&method==='POST'){
+          if(old.status==='archived')V.fail('Az archivált edzés nem módosítható.',409,'archived');V.version(b,old);
+          const e=store.get('SELECT * FROM exercises WHERE id=? AND active=1',V.text(b.exercise_id,'Gyakorlat',50,true));if(!e)V.fail('Válassz aktív gyakorlatot.');
+          const existing=store.get('SELECT * FROM workout_sets WHERE workout_id=? AND exercise_id=? ORDER BY number DESC LIMIT 1',id,e.id),last=store.get('SELECT max(position) AS position FROM workout_sets WHERE workout_id=?',id),sid=randomUUID();
+          if(existing?.number>=30)V.fail('Gyakorlatonként legfeljebb 30 sorozat rögzíthető.');
+          store.transaction(()=>{store.run('INSERT INTO workout_sets(id,workout_id,exercise_id,exercise_name,muscle,equipment,category,position,number,warmup,exercise_note) VALUES(?,?,?,?,?,?,?,?,?,?,?)',sid,id,e.id,existing?.exercise_name||e.name,existing?.muscle||e.muscle,existing?.equipment||e.equipment,existing?.category||e.category,existing?.position??((last.position??-1)+1),(existing?.number||0)+1,V.bool(b.warmup)?1:0,existing?.exercise_note||'');store.run('UPDATE workouts SET updated_at=?,version=version+1 WHERE id=?',now(),id);rev('set',sid,u,null,{exercise_id:e.id,additional:true});});return json(res,workout(u,cid,id),201);
+        }
+        if(p[4]==='sets'&&p[5]&&method==='PATCH'){
+          if(old.status==='archived')V.fail('Az archivált edzés nem módosítható.',409,'archived');const s=store.get('SELECT * FROM workout_sets WHERE id=? AND workout_id=?',p[5],id);if(!s)V.fail('Nincs ilyen sorozat.',404);V.version(b,s);const completed=V.bool(b.completed,true),cardio=s.category==='cardio';
+          const n={actual_reps:V.number(b.actual_reps,'Tényleges ismétlés',1,200,completed&&!cardio,true),actual_weight:V.number(b.actual_weight,'Tényleges súly',0,1000,completed&&!cardio),rpe:V.number(b.rpe,'RPE',6,10),rest_minutes:V.number(b.rest_minutes,'Pihenő (perc)',0,120),warmup:V.bool(b.warmup,s.warmup===1)?1:0,note:V.text(b.note,'Sorozatjegyzet',2000),completed:completed?1:0,duration_minutes:V.number(b.duration_minutes,'Kardió idő (perc)',0.1,1440,completed&&cardio),distance_km:V.number(b.distance_km,'Távolság (km)',0,1000)};
+          store.transaction(()=>{store.run('UPDATE workout_sets SET actual_reps=?,actual_weight=?,rpe=?,rest_minutes=?,warmup=?,note=?,completed=?,duration_minutes=?,distance_km=?,version=version+1 WHERE id=?',...Object.values(n),s.id);store.run("UPDATE workouts SET updated_at=?,version=version+1,status=CASE WHEN status='completed' AND NOT EXISTS(SELECT 1 FROM workout_sets WHERE workout_id=? AND completed=1) THEN 'in_progress' ELSE status END WHERE id=?",now(),id,id);rev('set',s.id,u,s,n);});return json(res,workout(u,cid,id));
+        }
+        V.version(b,old);
+        if(method==='PATCH'){
+          if(old.status==='archived')V.fail('Az archivált edzés nem módosítható.',409,'archived');const status=b.status||old.status;if(!['in_progress','completed'].includes(status))V.fail('Hibás állapot.');if(status==='completed'&&!store.get('SELECT 1 FROM workout_sets WHERE workout_id=? AND completed=1',id))V.fail('Lezáráshoz legalább egy tényleges sorozat szükséges.');
+          const timestamp=(value,label)=>{if(value==null||value==='')return null;if(typeof value!=='string'||!Number.isFinite(Date.parse(value)))V.fail(label+': hibás időpont.');return new Date(value).toISOString();};const started=b.started_at===undefined?old.started_at:timestamp(b.started_at,'Kezdés'),ended=status==='completed'?(b.ended_at===undefined?(old.ended_at||(old.date===today()?now():null)):timestamp(b.ended_at,'Befejezés')):null;
+          if(started&&ended&&(ended<started||Date.parse(ended)-Date.parse(started)>86400000))V.fail('Az edzés időtartama 0–24 óra lehet.');const name=V.text(b.name||old.name,'Edzés neve',160,true),note=V.text(b.note===undefined?old.note:b.note,'Edzésjegyzet',4000);
+          store.transaction(()=>{store.run('UPDATE workouts SET name=?,note=?,status=?,started_at=?,ended_at=?,version=version+1,updated_at=? WHERE id=?',name,note,status,started,ended,now(),id);rev('workout',id,u,old,{name,note,status,started_at:started,ended_at:ended});});return json(res,workout(u,cid,id));
+        }
+        if(method==='DELETE'){store.transaction(()=>{store.run('UPDATE workouts SET status=\'archived\',version=version+1,updated_at=? WHERE id=?',now(),id);rev('workout',id,u,old,{status:'archived'});});return json(res,{ok:true});}
+      }
+      if(resource==='rest-days'){
+        if(method==='GET')return json(res,store.all('SELECT * FROM rest_days WHERE client_id=? AND archived_at IS NULL ORDER BY date DESC',cid));access(u,cid,true);editable(c);
+        if(method==='POST'){const date=day(b.date),note=V.text(b.note,'Megjegyzés',2000),rid=randomUUID();store.transaction(()=>{store.run('INSERT INTO rest_days VALUES(?,?,?,?,NULL,?)',rid,cid,date,note,now());rev('rest',rid,u,null,{date,note});});return json(res,{id:rid,date,note},201);}
+        if(method==='DELETE'){const old=store.get('SELECT * FROM rest_days WHERE id=? AND client_id=? AND archived_at IS NULL',id,cid);if(!old)V.fail('Nincs ilyen pihenőnap.',404);store.transaction(()=>{store.run('UPDATE rest_days SET archived_at=? WHERE id=?',now(),id);rev('rest',id,u,old,{archived:true});});return json(res,{ok:true});}
+      }
+      if(resource==='statistics'&&method==='GET'){const from=V.date(url.searchParams.get('from')||M.monday(today())),to=V.date(url.searchParams.get('to')||M.shift(from,6));if(to<from)V.fail('Hibás időszak.');const d=data(cid);return json(res,M.stats(d.workouts,d.sets,from,to));}
+      if(resource==='history'&&method==='GET'){const entity=V.text(url.searchParams.get('entity'),'Entitás',20,true),eid=V.text(url.searchParams.get('id'),'Azonosító',50,true),belongs=entity==='client'?eid===cid:entity==='plan'?!!store.get('SELECT 1 FROM plans WHERE id=? AND client_id=?',eid,cid):entity==='workout'?!!store.get('SELECT 1 FROM workouts WHERE id=? AND client_id=?',eid,cid):['diet','medication','photo'].includes(entity)?!!store.get('SELECT 1 FROM records WHERE id=? AND client_id=? AND kind=?',eid,cid,entity):entity==='set'?!!store.get('SELECT 1 FROM workout_sets s JOIN workouts w ON w.id=s.workout_id WHERE s.id=? AND w.client_id=?',eid,cid):false;if(!belongs)V.fail('Nincs ilyen előzmény.',404);return json(res,store.all('SELECT * FROM revisions WHERE entity=? AND entity_id=? ORDER BY created_at DESC,rowid DESC',entity,eid).map(r=>({...r,before:r.before_json?JSON.parse(r.before_json):null,after:r.after_json?JSON.parse(r.after_json):null,before_json:undefined,after_json:undefined})));}
+      if(resource==='measurements'){
+        if(method==='GET')return json(res,store.all('SELECT * FROM measurements WHERE client_id=? ORDER BY date DESC,created_at DESC,rowid DESC',cid).map(r=>({...r,data:JSON.parse(r.data_json),data_json:undefined})));access(u,cid,true);editable(c);
+        if(method==='POST'){const date=day(b.date),weight=V.number(b.weight,'Testsúly',20,500,true),values={};for(const k of ['waist','chest','hip','arm','thigh'])values[k]=V.number(b[k],k,1,300);const mid=randomUUID();store.transaction(()=>{store.run('INSERT INTO measurements VALUES(?,?,?,?,?,?)',mid,cid,date,weight,JSON.stringify(values),now());rev('measurement',mid,u,null,{date,weight,...values});});return json(res,{id:mid,date,weight,...values},201);}
+      }
+      if(resource==='food-logs'){
+        if(method==='GET')return json(res,store.all('SELECT * FROM food_logs WHERE client_id=? AND archived_at IS NULL ORDER BY date DESC,meal,created_at',cid));access(u,cid,true);editable(c);
+        if(method==='POST'){const date=day(b.date),meal=V.number(b.meal,'Étkezés',1,6,true,true),name=V.text(b.name,'Étel',160,true),grams=V.number(b.grams,'Mennyiség (g)',0.1,10000,true),n={};for(const k of ['protein','carbs','fat','calories'])n[k]=V.number(b[k],k,0,10000);const fid=randomUUID();store.transaction(()=>{store.run('INSERT INTO food_logs VALUES(?,?,?,?,?,?,?,?,?,?,?,NULL)',fid,cid,date,meal,name,grams,n.protein,n.carbs,n.fat,n.calories,now());rev('food',fid,u,null,{date,meal,name,grams,...n});});return json(res,{id:fid,date,meal,name,grams,...n},201);}
+        if(method==='DELETE'){const old=store.get('SELECT * FROM food_logs WHERE id=? AND client_id=? AND archived_at IS NULL',id,cid);if(!old)V.fail('Nincs ilyen bejegyzés.',404);store.transaction(()=>{store.run('UPDATE food_logs SET archived_at=? WHERE id=?',now(),id);rev('food',id,u,old,{archived:true});});return json(res,{ok:true});}
+      }
+      if(resource==='daily-logs'){
+        if(method==='GET')return json(res,store.all('SELECT * FROM daily_logs WHERE client_id=? ORDER BY date DESC',cid).map(r=>({...r,data:JSON.parse(r.data_json),data_json:undefined})));access(u,cid,true);editable(c);
+        if(method==='POST'){const date=day(b.date),old=store.get('SELECT * FROM daily_logs WHERE client_id=? AND date=?',cid,date);if(old)V.version(b,old);const n={sleep:V.number(b.sleep,'Alvás',0,24),energy:V.number(b.energy,'Energia',1,5,false,true),pain:V.text(b.pain,'Fájdalom',2000),note:V.text(b.note,'Megjegyzés',4000),blood_pressure:V.text(b.blood_pressure,'Vérnyomás',30),blood_glucose:V.number(b.blood_glucose,'Vércukor',0.1,50),lab_date:b.lab_date?V.date(b.lab_date):null},did=old?.id||randomUUID(),closed=V.bool(b.closed)?now():null;store.transaction(()=>{if(old)store.run('UPDATE daily_logs SET closed_at=?,data_json=?,version=version+1 WHERE id=?',closed,JSON.stringify(n),did);else store.run('INSERT INTO daily_logs VALUES(?,?,?,?,?,1)',did,cid,date,closed,JSON.stringify(n));rev('daily',did,u,old,{date,data:n,closed_at:closed});});return json(res,{id:did,date,data:n,closed_at:closed,version:(old?.version||0)+1});}
+      }
+      if(resource==='records'){
+        const kind=V.text(url.searchParams.get('kind')||b.kind,'Modul',20,true);if(!['diet','medication','photo'].includes(kind))V.fail('Hibás modul.');
+        if(method==='GET')return json(res,store.all('SELECT * FROM records WHERE client_id=? AND kind=? AND archived_at IS NULL ORDER BY created_at DESC',cid,kind).map(r=>({...r,data:JSON.parse(r.data_json),data_json:undefined})));
+        if(kind==='photo')access(u,cid,true);else coach(u);editable(c);
+        const recordData=()=>{if(kind==='diet')return {name:V.text(b.data?.name,'Étrend neve',160,true),meals:V.number(b.data?.meals,'Étkezések száma',5,6,true,true),note:V.text(b.data?.note,'Étrend',10000)};if(kind==='medication')return {name:V.text(b.data?.name,'Gyógyszer',160,true),dose:V.text(b.data?.dose,'Dózis',160,true),note:V.text(b.data?.note,'Megjegyzés',2000)};const img=V.image(b.data?.base64);return {date:day(b.data.date),note:V.text(b.data.note,'Megjegyzés',2000),base64:img.bytes.toString('base64'),type:img.type};};
+        if(method==='POST'){const n=recordData(),rid=randomUUID();store.transaction(()=>{store.run('INSERT INTO records VALUES(?,?,?,?,1,?,?,NULL)',rid,cid,kind,JSON.stringify(n),now(),now());rev(kind,rid,u,null,kind==='photo'?{date:n.date,note:n.note}:n);});return json(res,{id:rid,kind,data:n,version:1},201);}
+        const old=store.get('SELECT * FROM records WHERE id=? AND client_id=? AND kind=?',id,cid,kind);if(!old)V.fail('Nincs ilyen adat.',404);V.version(b,old);
+        if(method==='PATCH'){const n=recordData();store.transaction(()=>{store.run('UPDATE records SET data_json=?,version=version+1,updated_at=? WHERE id=?',JSON.stringify(n),now(),id);rev(kind,id,u,kind==='photo'?{date:JSON.parse(old.data_json).date}:JSON.parse(old.data_json),kind==='photo'?{date:n.date,note:n.note}:n);});return json(res,{id,kind,data:n,version:old.version+1});}
+        if(method==='DELETE'){store.transaction(()=>{store.run('UPDATE records SET archived_at=?,version=version+1 WHERE id=?',now(),id);rev(kind,id,u,kind==='photo'?{date:JSON.parse(old.data_json).date}:JSON.parse(old.data_json),{archived:true});});return json(res,{ok:true});}
+      }
+      V.fail('Nincs ilyen művelet.',404,'not-found');
+    }catch(e){if(e instanceof V.Problem)return sendProblem(res,e.status,'A kérés nem teljesíthető',e.message,e.code);if(String(e.message).includes('UNIQUE constraint'))return sendProblem(res,409,'Már létező adat','Az adat vagy a nap már szerepel. Frissítsd a nézetet.','duplicate');if(String(e.message).includes('day_conflict'))return sendProblem(res,409,'Ütköző nap','Előbb archiváld a nap meglévő edzését vagy pihenőnapját.','day-conflict');logger.error(JSON.stringify({event:'api_error',requestId,code:e.code||'unexpected'}));return sendProblem(res,500,'Szerverhiba','A művelet nem sikerült. Kérésazonosító: '+requestId,'internal');}
   };
 }
-
-module.exports = { API_PREFIX, createApi, sendProblem };
+module.exports={createApi,sendProblem,API_PREFIX};

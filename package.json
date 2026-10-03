@@ -1,14 +1,17 @@
 {
   "name": "impavidus-lab",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "private": true,
   "description": "IMPAVIDUS LAB — egyetlen edző-kliens PWA projekt",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "start": "node server.js",
     "test": "node tests/run.js",
-    "check": "node --check server.js && node --check backend/app.js && node --check backend/server.js && node --check backend/access.js"
+    "check": "node --experimental-vm-modules scripts/check.js",
+    "build": "node scripts/build.js",
+    "backup": "node scripts/backup.js",
+    "coach": "node scripts/create-coach.js"
   }
 }

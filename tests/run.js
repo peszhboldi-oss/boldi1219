@@ -5,3 +5,7 @@
 require('./access.test');
 require('./schema.test');
 require('./server.test');
+require('./metrics.test');
+require('./integration.test');
+require('./wger-import.test');
+require('./auth.test');

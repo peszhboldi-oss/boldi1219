@@ -1,30 +1,37 @@
-# IMPAVIDUS LAB – architektúra
+# A harmadik lépés architektúrája
 
-## Egy alkalmazás, egy kliens és egy tervezett adatforrás
+Egy meglévő projekt, egy frontend, egy same-origin API, egy adattár. Keretrendszer vagy új csomag nem került be.
 
-- **Frontend:** a mellékelt magyar nyelvű, függőség nélküli HTML/CSS/JavaScript PWA marad a termék kiindulópontja. Nincs külön wger- vagy FitHub-frontend.
-- **Backend:** az alkalmazást és az `/api/v1` API-t ugyanaz a Node.js fejlesztői folyamat szolgálja ki. Az API jelenleg állapot- és konfigurációs váz; kliensadatot még nem fogad és nem tárol.
-- **Adatbázis cél:** PostgreSQL, egyetlen, verziózott SQL-migrációval induló központi séma. A séma megvan, az adatbázis-kliens, migrációfuttató és élő kapcsolat még nincs beállítva.
-- **Jogosultság:** a tervezett szerepek `client`, `coach`, `admin`. A `backend/access.js` tiszta policy-segédfüggvényeket ad, de hitelesített munkamenetet még nem állít elő. Minden privát adatvégpont előtt szerveroldali hitelesítés és kliens-hozzárendelés ellenőrzés kell.
-- **Licenc:** nincs wger- vagy FitHub-forráskód beemelve. A meglévő felhasználói projekt fájljai az archívumból kerültek át; a két külső repository licencét a korábbi audit dokumentálja.
-
-## Jelenlegi állapot
-
-Az alkalmazás továbbra is demonstrációs, helyi `localStorage` adatokkal indul. Ezt a felület minden belépési pontján demóként jelöljük. A „helyi mentés” kizárólag a böngésző helyi tárolását jelenti. Nincs hálózati adat-szinkron, szerveroldali bejelentkezés, PostgreSQL-kapcsolat vagy telepítés.
-
-## Tervezett mentési és offline modell
-
-1. A Service Worker csak app-shell fájlokat tárolhat gyorsítótárban; érzékeny kliensadatot, fotót vagy API-választ nem.
-2. A valódi offline naplózás IndexedDB-be kerül külön kliensoldali adattárként, idempotens műveletazonosítókkal és látható szinkronállapottal.
-3. A szerver minden módosítást a hitelesített felhasználó és a hozzárendelt kliens alapján engedélyez. A böngésző által küldött szerep vagy `clientId` önmagában nem jogosultság.
-4. Tervmódosítás, gyógyszer-változás, mérés és törlés verzió- vagy auditnyomot kap; ütközés esetén a szerver nem írja felül csendben a másik fél módosítását.
-
-## Fejlesztői futtatás
-
-Node.js 22.13 vagy újabb verzióval:
-
-```sh
-npm start
+```text
+index.html + frontend/app.js + styles.css
+        ↓ Repository.request / saveSet (same-origin fetch)
+backend/server.js → app.js → auth.js / validation.js / metrics.js
+        ↓ Store (paraméterezett lekérdezés, tranzakció, revízió)
+data/impavidus.sqlite ← db/sqlite/001,002 migrációk
 ```
 
-Az `.env.example` dokumentációs minta, a folyamat jelenleg nem tölt be `.env` fájlt. A `PORT` közvetlen környezeti változóként adható meg. Az API állapotvégpontja: `GET /api/v1/health`. A `GET /api/v1/ready` szándékosan 503-at ad, amíg az adatbázis nincs bekötve.
+## Adatbázis-döntés
+
+A második lépésben a PostgreSQL célmodellje megvolt, élő kapcsolat és driver nem volt. Ezen a gépen nincs PostgreSQL/Docker. A Node 24 beépített SQLite-adaptere függőségtelepítés nélkül valódi, tartós adatbázist ad. A `Store` határába később PostgreSQL-adapter kerülhet; az SQL-dialektust és a szinkron hozzáférést akkor át kell dolgozni aszinkron tranzakciókra. Nem fut két backend, és nincs kettős írás.
+
+A `db/migrations/001_initial_schema.sql` a korábbi PostgreSQL terv, nem az aktuális runtime-séma; a két sémát nem szabad egyszerre élesnek tekinteni. PostgreSQL-re áttéréshez új célmigráció és ellenőrzött adatexport/import kell. SQLite egy helyi Node-folyamathoz megfelelő; több író példányhoz és nagy fotótárhoz PostgreSQL + privát objektumtár javasolt.
+
+## Fiókok és jogosultságok
+
+Az első edző a helyi üres adatbázisban létrehozza saját fiókját. A kliens létrehozásakor még nincs kliensjelszó: profil, kliensfiók és edzői kapcsolat keletkezik. A 24 órás, egyszer használható meghívóval a kliens saját fiókot aktivál. A szerep és a kapcsolat minden adatvégponton szerveroldali ellenőrzést kap. Idegen kliensre 404 válasz érkezik; az edző a kliens tényadatait nem írhatja.
+
+A régi jelszó nélküli névválasztást a harmadik lépés kifejezett hitelesítési követelménye felváltotta. Az archiválás adatot nem töröl, de a kliens munkameneteit és meghívóit visszavonja. A visszaállítás ismét engedi a belépést, korábbi cookie-t nem aktivál újra.
+
+## Terv, edzés és statisztika
+
+A terv verziózott, rendezett JSON-struktúrában tárol sorozatcélokat. Edzésindításkor új workout és relációs workout_sets sorok jönnek létre, a terv és gyakorlat akkori adataival. Tényleges súly, ismétlés és RPE NULL. A későbbi terv-/gyakorlatmódosítás nem érinti a pillanatfelvételt.
+
+Csak explicit `completed` sorozat számít teljesítettnek. Hiányzó tényadat NULL, nem tervből képzett vagy automatikus nulla. Extra ténysorozat külön naplóbejegyzés, nem módosítja a tervet. Módosítások ugyanabban a tranzakcióban kapnak előtte/utána revíziót. A verziószám elavult mentéskor 409-et eredményez.
+
+## Korábbi modulok
+
+A tíz navigációs cél megmaradt. Napi napló, kézi étkezésnapló, mérés, privát fotó, szöveges étrend és dózislista a közös adatbázishoz kapcsolódik. A korábbi demó részletes ételtervezője archivált forrásként megmaradt; az új hitelesített étrendmodulban a strukturált ételkatalógus nincs kész. Ezt a felület jelzi.
+
+## Üzemeltetés
+
+Fájl-allowlist, CSP, request ID és strukturált napló; API-válaszok `no-store`. A log nem tartalmaz e-mailt, cookie-t, kliensazonosítót, jegyzetet, jelszót vagy képtartalmat. A SQLite-migráció induláskor atomikusan, egyszer fut. A backup a SQLite online backup API-jával készül; a visszaolvasás külön fájlból integrációs tesztelt.

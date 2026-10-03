@@ -1,0 +1,3 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),{convertWger}=require('../backend/wger-import');
+try{const [input,configuration,output]=process.argv.slice(2);if(!input||!configuration||!output)throw new Error('Használat: node scripts/convert-wger.js exerciseinfo.json mapping.json import.json');if(fs.existsSync(output))throw new Error('A célfájl már létezik; válassz új nevet.');const result=convertWger(JSON.parse(fs.readFileSync(input,'utf8')),JSON.parse(fs.readFileSync(configuration,'utf8')));fs.writeFileSync(output,JSON.stringify(result.items,null,2),{flag:'wx'});console.log(JSON.stringify({output:path.resolve(output),converted:result.items.length,skipped:result.skipped},null,2));}catch(e){console.error(e.message);process.exitCode=1;}

@@ -1,57 +1,12 @@
 'use strict';
-
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { createServer, staticPath } = require('../backend/server');
-
-test('publikus fájl allowlist útvonalakat fogad el és kizárja a privát fájlokat', () => {
-  assert.ok(staticPath('/index.html').endsWith('index.html'));
-  assert.ok(staticPath('/icon.svg').endsWith('icon.svg'));
-  assert.equal(staticPath('/.env.example'), null);
-  assert.equal(staticPath('/backend/app.js'), null);
-  assert.equal(staticPath('/db/migrations/001_initial_schema.sql'), null);
-  assert.equal(staticPath('/%2e%2e/outside.txt'), null);
-});
-
-test('az API világosan jelzi, hogy az adatbázis és a hitelesítés még nincs beállítva', async t => {
-  const logs = [];
-  const server = createServer({ logger: { info: entry => logs.push(JSON.parse(entry)) } });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(() => new Promise(resolve => server.close(resolve)));
-  const base = `http://127.0.0.1:${server.address().port}`;
-
-  const health = await fetch(`${base}/api/v1/health`);
-  assert.equal(health.status, 200);
-  assert.deepEqual((await health.json()).database, 'not-configured');
-
-  const ready = await fetch(`${base}/api/v1/ready`);
-  assert.equal(ready.status, 503);
-
-  const session = await fetch(`${base}/api/v1/auth/session`);
-  assert.equal(session.status, 401);
-
-  const login = await fetch(`${base}/api/v1/auth/session`, { method: 'POST' });
-  assert.equal(login.status, 501);
-  assert.ok(logs.every(event => event.path && event.status));
-});
-
-test('az alkalmazás statikus oldalt és PWA fájlokat szolgál ki', async t => {
-  const server = createServer({ logger: { info() {} } });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(() => new Promise(resolve => server.close(resolve)));
-  const base = `http://127.0.0.1:${server.address().port}`;
-
-  const page = await fetch(base);
-  assert.equal(page.status, 200);
-  const html = await page.text();
-  assert.match(html, /Alex team/i);
-  assert.match(html, /DEMÓ · HELYI ADAT/);
-  for (const pageName of ['Adatlap', 'Napi napló', 'Heti összesítő', 'Edzésnapló', 'Étrend', 'Kajanapló', 'Gyógyszer', 'Mérések', 'Fotónapló', 'Beállítások']) {
-    assert.ok(html.includes(pageName), `missing navigation page: ${pageName}`);
-  }
-
-  const manifest = await fetch(`${base}/manifest.webmanifest`);
-  assert.equal(manifest.status, 200);
-  const denied = await fetch(`${base}/backend/app.js`);
-  assert.equal(denied.status, 400);
+const test=require('node:test'),assert=require('node:assert/strict');
+const {createServer,staticPath}=require('../backend/server'),{Store}=require('../backend/store');
+test('publikus allowlist kizárja a privát fájlokat, archív demót és útvonalkitörést',()=>{for(const p of ['/index.html','/icon.svg','/frontend/app.js','/frontend/styles.css'])assert.ok(staticPath(p));for(const p of ['/.env','/backend/app.js','/db/sqlite/001_core.sql','/data/impavidus.sqlite','/legacy/step2-index.html','/%2e%2e/outside.txt','/frontend/%2e%2e/backend/app.js'])assert.equal(staticPath(p),null);});
+test('valós SQLite és munkamenet állapot, CSP és tíz menüoldal',async t=>{const logs=[],store=new Store(':memory:'),server=createServer({store,logger:{info:s=>logs.push(JSON.parse(s)),error(){}}});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(async()=>{await new Promise(r=>server.close(r));store.close();});const base=`http://127.0.0.1:${server.address().port}`;
+  const health=await fetch(base+'/api/v1/health');assert.equal(health.status,200);assert.equal((await health.json()).database,'sqlite');assert.equal((await fetch(base+'/api/v1/ready')).status,200);
+  const session=await(await fetch(base+'/api/v1/auth/session')).json();assert.equal(session.setupRequired,true);assert.equal(session.user,null);assert.equal((await fetch(base+'/api/v1/clients')).status,401);
+  const page=await fetch(base);assert.equal(page.status,200);assert.match(page.headers.get('content-security-policy'),/script-src 'self'/);assert.match(await page.text(),/Alex team/);
+  const js=await(await fetch(base+'/frontend/app.js')).text();for(const name of ['Adatlap','Napi napló','Heti összesítő','Edzésnapló','Étrend','Kajanapló','Gyógyszer','Mérések','Fotónapló','Beállítások'])assert.ok(js.includes(name));
+  assert.equal((await fetch(base+'/manifest.webmanifest')).status,200);assert.equal((await fetch(base+'/backend/app.js')).status,400);assert.ok(logs.every(e=>e.route&&e.status));
+  const http=require('node:http');const hostStatus=await new Promise((resolve,reject)=>{http.get(base+'/api/v1/health',{headers:{Host:'evil.example:123'}},r=>{r.resume();resolve(r.statusCode);}).on('error',reject);});assert.equal(hostStatus,421);
 });

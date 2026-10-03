@@ -1,43 +1,69 @@
 # IMPAVIDUS LAB — [Alex team]
 
-Magyar nyelvű, prémium edző–kliens napló PWA. Ez az archívumban kapott saját alkalmazás kibővített, egyprojektes alapja; a wger és FitHub kódjából nem került át komponens.
+Magyar, bordó–fekete edző–kliens PWA, valódi helyi adatbázissal. Egy Node.js folyamat szolgálja ki a vanilla JS felületet és az API-t. Nincs szükség függőségtelepítésre.
 
-## Állapot
+## Indítás Windows alatt
 
-Az alkalmazás jelenleg **demó**: a kliensválasztás nem hitelesítés, a mintarekordok fiktívek, és az adatok a böngésző `localStorage`-ában maradnak. A látható jelző ezt mutatja. Ne tárolj benne éles kliensadatot. PostgreSQL, valódi fiók, szerveroldali jogosultság és szinkron még nincs bekötve. Az API health végpontja ezeket konfigurálatlanként jelzi, az adatvégpontok nem írnak adatot.
+1. A projekt gyökerében indítsd el az `INDITAS.cmd` fájlt. A gépen már elérhető Codex Node-runtime-ot is felismeri, ha a `node` nincs a PATH-ban.
+2. Nyisd meg: **http://127.0.0.1:8082**. A parancssori ablak maradjon nyitva.
+3. Első indításkor hozz létre saját edzői fiókot: e-mail-cím és legalább 12 karakteres jelszó.
+4. Hozz létre klienst, a Gyakorlatok oldalon saját gyakorlatot, majd az Edzésnaplóban tervet.
+5. Az adatlapon kérj egyszer használható kliensmeghívót. A kliens a kijelentkezés utáni „Kliensmeghívó használata” ponton aktiválja saját fiókját.
+6. Tényleges sorozatot **kliensként** rögzíts; az edző csak olvassa a tényadatokat.
 
-## Futtatás
-
-Node.js 22.13 vagy újabb, további csomag telepítése nélkül:
+Általános indítás Node.js **24 vagy újabb** verzióval:
 
 ```sh
 npm start
 ```
 
-Nyisd meg: <http://127.0.0.1:8080>. PWA telepítéshez localhost vagy HTTPS kell. Csak az app-shell fájlok kerülnek a Service Worker cache-be; az API- és személyes adatokat a service worker nem cache-eli.
+Leállítás: Ctrl+C. Újraindítás után a mentett adatok megmaradnak. Az adatbázis első indításkor automatikusan létrejön: `data/impavidus.sqlite`; a verziózott SQLite-migrációk automatikusan lefutnak. Nincs előre létrehozott fiók, jelszó, kliens vagy demóadat.
+
+## Működő funkciók
+
+- Edzői klienslista, profil létrehozása/módosítása, privát profilkép, meghívó, archiválás/visszaállítás.
+- Kliens saját profilja; aktuális súly kizárólag tényleges mérésből; súlyváltozás, megjegyzések és aktivitási sorozatok.
+- Központi gyakorlatkönyvtár, keresés, szerkesztés, inaktiválás, licencelt JSON import duplikációellenőrzéssel.
+- Klienshez rendelt tervek: sorozatonkénti célok, sorrend, jegyzetek, másolás másik saját klienshez, archiválás és verzióelőzmények.
+- Edzésindítás tervből; a tényleges mezők üresek. Nagy mobilos „SOROZAT KÉSZ” gomb, RPE, bemelegítés, pihenőidő szöveges adatként, korábbi tényeredmények, extra tényleges gyakorlat/sorozat.
+- Lezárás/újranyitás, időpontok, tényleges időtartam, utólagos javítás előzményekkel; külön pihenőnap, edzéssel való ütközésvédelem.
+- Heti statisztikák és négy adatalapú grafikon. A saját testsúlyos és kardióeredmények nem növelik a súlyzós volument.
+- Tényleges napi napló, kézi étkezésnapló, mérési előzmények, fejlődési fotók, edzői szöveges étrend és dózislista változástörténettel, JSON-export.
+- Szerveroldali jogosultság, HttpOnly munkamenet, CSRF-védelem, verzióütközések, scrypt-jelszóhash.
 
 ## Ellenőrzések
 
 ```sh
 npm test
 npm run check
+npm run build
+npm run backup
 ```
 
-Az integrációs adatbázis célja PostgreSQL. A `db/migrations/001_initial_schema.sql` létrehozza az üres adatmodellt; automatikus migrációfuttató és Postgres-kapcsolat még nincs.
-
-## Fő fájlok
-
-| Útvonal | Feladat |
-|---|---|
-| `index.html` | Jelenlegi magyar PWA felület és demófunkciók |
-| `server.js`, `backend/` | Egy folyamatban futó statikus kiszolgáló és API-váz |
-| `backend/access.js` | Kliens/edző/admin hozzáférési policy-segédek; nincs aktív auth provider |
-| `db/migrations/` | PostgreSQL induló séma, demórekordok nélkül |
-| `tests/` | Node beépített tesztfuttatójával futó API-, útvonal- és policy-tesztek |
-| `docs/` | Architektúra, adatmodell és biztonsági hiánylista |
-| `legacy/pre-foundation/` | A ZIP-ből kicsomagolt, módosítás előtti projektfájlok megőrzött másolata |
-| `legacy/v1-impavidus-lab.html` | Az archívumban kapott első verzió |
+`check`: szintaktikai kódellenőrzés (nem ESLint), egy folyamatban, külön VM-modullal. A Node „ExperimentalWarning: VM Modules” figyelmeztetése várható. `build`: a frontend csomagolása a `dist/` mappába; nem egy statikus backend nélküli termék. Az API és az adatbázis futtatásához a teljes projekt szükséges.
 
 ## Konfiguráció
 
-`.env.example` tartalmazza a tervezett változókat, titok nélkül; a jelenlegi szerver még nem tölt be `.env` fájlt. A `PORT` környezeti változót közvetlenül olvassa. `DATABASE_URL` és `SESSION_SECRET` még nincs használatban; PostgreSQL és hitelesítés nincs beállítva.
+Az opcionális `.env` fájlt a szerver betölti. A `.env.example` nem tartalmaz titkot.
+
+| Változó | Alapérték | Használat |
+|---|---|---|
+| `PORT` | `8082` | Helyi port |
+| `SQLITE_PATH` | `data/impavidus.sqlite` | SQLite-fájl; üres érték az alapértéket jelenti |
+| `APP_TIMEZONE` | `Europe/Budapest` | „Mai nap”, heti statisztikák és napzárás |
+| `NODE_ENV` | fejlesztés | `production` esetén kötelező a Secure cookie |
+| `COOKIE_SECURE` | `false` | HTTPS proxy mögött `true` |
+| `PUBLIC_ORIGIN` | üres | Éles HTTPS-domain; Host allowlist, production módban kötelező |
+
+`DATABASE_URL` használata konfigurációs hibával leáll: nincs PostgreSQL-adapter. `SESSION_SECRET` nem szükséges: véletlen session token hashét tároljuk az adatbázisban. További edzőt a `scripts/create-coach.js` hozhat létre `NEW_COACH_EMAIL` és `NEW_COACH_PASSWORD` egyszeri környezeti változókból; nem rendel automatikusan idegen klienst hozzá. Production módban az elsőfiók-létrehozó HTTP bootstrap tiltott; a fiókot a szerveren kell inicializálni.
+
+## Határok és következő lépés
+
+- Ez működő **helyi modul**, nem ellenőrzött éles telepítés. A szerver csak `127.0.0.1` címen figyel. Egy valódi telefonról elérhető szolgáltatáshoz HTTPS proxy, üzemeltetés és hozzáférési konfiguráció szükséges.
+- A Service Worker csak a felületet cache-eli. Offline tényrögzítés, tartós outbox, automatikus szinkron és konfliktusfeloldás még nincs. Hibás mentés nem kap „Mentve” állapotot.
+- Étrend jelenleg szöveges útmutatás 5/6 étkezéssel; részletes ételkatalógus/grammonkénti tervszámítás, XLSX/PDF-export következő fejlesztés.
+- Fiókhelyreállítás, MFA, e-mail-küldés, felületi edzői hozzárendelés-átadás, központi titkosított fotótár, titkosított/ütemezett mentés még nincs.
+- A korábbi demó teljes forrása `legacy/step2-index.html` alatt megmaradt. A régi böngészős `localStorage` adatokat nem töltjük be automatikusan: fiktív rekordokat is tartalmazhatnak. Migráció előtt külön export és ellenőrzés szükséges.
+- Nem másoltunk át wger vagy FitHub alkalmazáskódot. A wger formátumához saját importadapter készült; licencellenőrzés nélkül nem töltünk adatot. Lásd `docs/licensing.md`.
+
+Részletek: `docs/architecture.md`, `docs/database.md`, `docs/security.md`, `docs/offline.md`, `docs/testing.md`, `docs/step3-report.md`.

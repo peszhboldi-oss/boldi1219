@@ -1,0 +1,16 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),{streak,stats,monday,shift}=require('../backend/metrics');
+const base={startDate:'2026-09-28',today:'2026-10-03'};
+test('hétfő–vasárnap és DST biztonságos dátumszámítás',()=>{assert.equal(monday('2026-10-04'),'2026-09-28');assert.equal(monday('2026-10-05'),'2026-10-05');assert.equal(shift('2026-10-25',1),'2026-10-26');});
+test('hiányzó kajanapló nem teljesít napot; nyitott mai nap nem hiány',()=>{assert.deepEqual(streak({startDate:'2026-10-03',today:'2026-10-03',workoutDates:['2026-10-03']}),{current:0,longest:0,weekly:0});assert.equal(streak({...base,foodDates:['2026-09-28','2026-09-30','2026-10-01','2026-10-02'],workoutDates:['2026-09-28','2026-09-30','2026-10-01','2026-10-02']}).current,4);});
+test('a második hiányzó nap nulláz, a korábbi maximum nem csökken',()=>{const dates=['2026-09-28','2026-09-30'];assert.deepEqual(streak({...base,foodDates:dates,workoutDates:dates,previousLongest:7}),{current:0,longest:7,weekly:2});});
+test('mai lezárt nap második kimaradásként nulláz',()=>{const dates=['2026-09-28','2026-09-30','2026-10-01','2026-10-02'];assert.equal(streak({...base,foodDates:dates,workoutDates:dates,closedDates:['2026-10-03']}).current,0);});
+test('hétváltás új hiánykeret, pihenőnap étkezéssel teljesített',()=>{const dates=['2026-10-02','2026-10-04','2026-10-06'];assert.equal(streak({startDate:'2026-10-02',today:'2026-10-07',foodDates:dates,restDates:dates}).current,3);assert.equal(streak({startDate:'2026-10-02',today:'2026-10-07',restDates:dates}).current,0);});
+test('jövőbeli kezdés nem generál eredményt',()=>{assert.deepEqual(streak({startDate:'2026-10-04',today:'2026-10-03'}),{current:0,longest:0,weekly:0});});
+test('tényalapú statisztikák: bemelegítő kizárva, 0 súly valódi, kardió külön',()=>{
+ const w=[{id:'w',date:'2026-10-01',name:'Edzés',status:'completed'}],s=(id,extra)=>({id,workout_id:'w',exercise_id:'e',exercise_name:'Gyakorlat',muscle:'Mell',category:'free_weight',actual_reps:10,actual_weight:50,completed:1,warmup:0,rpe:null,...extra});
+ const result=stats(w,[s('1',{rpe:8}),s('2',{warmup:1,actual_weight:20,rpe:6}),s('3',{actual_weight:null,planned_weight:60}),s('4',{category:'bodyweight',actual_weight:0}),s('5',{category:'cardio',actual_weight:null,actual_reps:null,duration_minutes:20}),s('6',{completed:0,planned_weight:100})],'2026-09-28','2026-10-04');
+ assert.equal(result.completedWorkouts,1);assert.equal(result.hardSets,2);assert.equal(result.bodyweightSets,1);assert.equal(result.volume,700);assert.equal(result.averageRpe,7);assert.equal(result.cardioMinutes,20);assert.deepEqual(result.muscle,{Mell:2});
+});
+test('hiányzó volumen és RPE null, üres sorozatszám tényleges nulla',()=>{const r=stats([],[],'2026-09-28','2026-10-04');assert.equal(r.volume,null);assert.equal(r.averageRpe,null);assert.equal(r.hardSets,0);});
+test('archivált edzés és időszakon kívüli eredmény nem számít',()=>{const w=[{id:'w',date:'2026-10-01',status:'archived'},{id:'2',date:'2026-09-27',status:'completed'}];const s=w.map(x=>({workout_id:x.id,completed:1,actual_weight:100,actual_reps:10,category:'free_weight',warmup:0,rpe:10}));assert.equal(stats(w,s,'2026-09-28','2026-10-04').hardSets,0);});
