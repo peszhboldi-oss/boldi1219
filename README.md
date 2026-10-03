@@ -1,71 +1,55 @@
 # IMPAVIDUS LAB
 
-Magyar, bordó–fekete edző–kliens PWA, valódi helyi adatbázissal. Egy Node.js folyamat szolgálja ki a vanilla JS felületet és az API-t. Nincs szükség függőségtelepítésre.
+Magyar, prémium bordó–fekete edző–kliens napló. Egy Node.js 24+ folyamat szolgálja ki a vanilla JS PWA-t és a hitelesített API-t, valódi SQLite-adatbázissal. Új külső csomag telepítése nem szükséges.
 
-## Indítás Windows alatt
+## Mindennapi indítás
 
-1. A projekt gyökerében indítsd el az `INDITAS.cmd` fájlt. A gépen már elérhető Codex Node-runtime-ot is felismeri, ha a `node` nincs a PATH-ban.
-2. Nyisd meg: **http://127.0.0.1:8082**. A parancssori ablak maradjon nyitva.
-3. Első indításkor hozz létre saját edzői fiókot: felhasználónév és legalább 12 karakteres jelszó.
-4. Hozz létre klienst saját felhasználónévvel és jelszóval, a Gyakorlatok oldalon saját gyakorlatot, majd az Edzésnaplóban tervet.
-5. A kliens közvetlenül felhasználónévvel és jelszóval lép be. Az edző az adatlap „Belépési adatok” gombjával módosíthatja ezeket; üres jelszómezőnél a meglévő jelszó megmarad.
-6. Tényleges sorozatot **kliensként** rögzíts; az edző csak olvassa a tényadatokat.
+Windows: dupla kattintás az **IMPAVIDUS LAB** asztali ikonra vagy a `START_IMPAVIDUS_LAB.cmd` fájlra. Cím: **http://127.0.0.1:8082**. A szerver a háttérben fut; leállítás `STOP_IMPAVIDUS_LAB.cmd`, újraindítás `RESTART_IMPAVIDUS_LAB.cmd`, ellenőrzés `CHECK_IMPAVIDUS_LAB.cmd`.
 
-Általános indítás Node.js **24 vagy újabb** verzióval:
+Első használatkor saját edzői felhasználónevet és legalább 12 karakteres jelszót hozz létre. A kliens saját felhasználónévvel/jelszóval lép be; nincs e-mail, meghívókód vagy gyári fiók. Másik gépen `INSTALL_IMPAVIDUS_LAB.cmd` készíti elő a meglévő runtime mellett a konfigurációt, migrációkat és az asztali ikont.
 
-```sh
-npm start
-```
+- [Indítás és hibaelhárítás](README_START_HU.md)
+- [Magyar használati útmutató](IMPAVIDUS_LAB_UTMUTATO_HU.md)
+- [Negyedik lépés átadási jelentése](docs/step4-report.md)
 
-Leállítás: Ctrl+C. Újraindítás után a mentett adatok megmaradnak. Az adatbázis első indításkor automatikusan létrejön: `data/impavidus.sqlite`; a verziózott SQLite-migrációk automatikusan lefutnak. Nincs előre létrehozott fiók, jelszó, kliens vagy demóadat.
+## Működő modulok
 
-## Működő funkciók
+| Oldal | Működés |
+|---|---|
+| Adatlap | Hozzárendelt kliens, valódi mérésből súly, fejlődés, megjegyzések, profil/archiválás, belépési adatok |
+| Napi napló | Regeneráció, tényleges edzés, étkezés, aktuális készítmény egy nézetben |
+| Heti összesítő | Közös sorozatszámítás, adatalapú grafikonok, makrók/célok, CSV/XLSX |
+| Edzésnapló | Gyakorlatkönyvtár, verziózott tervek, üresen induló tények, sorozatok, javítás és előzmény |
+| Étrend | Katalógus, 5/6 étkezés, grammok, célok, dátumérvényesség, másolás, archiválás |
+| Kajanapló | Tervből csak előkészített tételek; kifejezett fogyasztás, grammjavítás, pillanatfelvétel |
+| Gyógyszer | Dátumozott dózislista, megőrzött változások; nincs adagolási javaslat |
+| Mérések | Kliens és hozzárendelt edző új mérése, körméretek, súlygrafikon |
+| Fotónapló | Privát PNG/JPEG, dátum, nagyítás, összehasonlítás, archiválás |
+| Beállítások | Tartós kapcsolók, export, mentés, outbox és tudatos ütközésfeloldás |
 
-- Edzői klienslista, profil létrehozása/módosítása, privát profilkép, belépési adatok kezelése, archiválás/visszaállítás.
-- Kliens saját profilja; aktuális súly kizárólag tényleges mérésből; súlyváltozás, megjegyzések és aktivitási sorozatok.
-- Központi gyakorlatkönyvtár, keresés, szerkesztés, inaktiválás, licencelt JSON import duplikációellenőrzéssel.
-- Klienshez rendelt tervek: sorozatonkénti célok, sorrend, jegyzetek, másolás másik saját klienshez, archiválás és verzióelőzmények.
-- Edzésindítás tervből; a tényleges mezők üresek. Nagy mobilos „SOROZAT KÉSZ” gomb, RPE, bemelegítés, pihenőidő szöveges adatként, korábbi tényeredmények, extra tényleges gyakorlat/sorozat.
-- Lezárás/újranyitás, időpontok, tényleges időtartam, utólagos javítás előzményekkel; külön pihenőnap, edzéssel való ütközésvédelem.
-- Heti statisztikák és négy adatalapú grafikon. A saját testsúlyos és kardióeredmények nem növelik a súlyzós volument.
-- Tényleges napi napló, kézi étkezésnapló, mérési előzmények, fejlődési fotók, edzői szöveges étrend és dózislista változástörténettel, JSON-export.
-- Szerveroldali jogosultság, HttpOnly munkamenet, CSRF-védelem, verzióütközések, scrypt-jelszóhash.
-
-## Ellenőrzések
+## Technikai ellenőrzések
 
 ```sh
-npm test
-npm run check
-npm run build
-npm run backup
+node tests/run.js
+node --experimental-vm-modules scripts/check.js
+node scripts/build.js
+node scripts/backup.js
 ```
 
-`check`: szintaktikai kódellenőrzés (nem ESLint), egy folyamatban, külön VM-modullal. A Node „ExperimentalWarning: VM Modules” figyelmeztetése várható. `build`: a frontend csomagolása a `dist/` mappába; nem egy statikus backend nélküli termék. Az API és az adatbázis futtatásához a teljes projekt szükséges.
+A `check` szintaktikai ellenőrzés, nem telepített linter; VM Modules figyelmeztetés várható. A build a felületet `dist/` alá csomagolja; az API nélkül nem teljes alkalmazás. A teljes forrás szükséges a helyi futtatáshoz. Nincs hamis vagy éles adatot használó seed.
 
-## Konfiguráció
+## Konfiguráció és adattárolás
 
-Az opcionális `.env` fájlt a szerver betölti. A `.env.example` nem tartalmaz titkot.
+`.env.example` → opcionális `.env`; meglévőt az installer nem ír felül. `PORT=8082`, `APP_TIMEZONE=Europe/Budapest`, `SQLITE_PATH` opcionális. HTTPS proxy mögött `COOKIE_SECURE=true` és HTTPS `PUBLIC_ORIGIN`; production módban kötelező. `DATABASE_URL` nem támogatott, PostgreSQL nincs bekötve. Nyers session helyett véletlen token hashét tároljuk; `SESSION_SECRET` nem kell.
 
-| Változó | Alapérték | Használat |
-|---|---|---|
-| `PORT` | `8082` | Helyi port |
-| `SQLITE_PATH` | `data/impavidus.sqlite` | SQLite-fájl; üres érték az alapértéket jelenti |
-| `APP_TIMEZONE` | `Europe/Budapest` | „Mai nap”, heti statisztikák és napzárás |
-| `NODE_ENV` | fejlesztés | `production` esetén kötelező a Secure cookie |
-| `COOKIE_SECURE` | `false` | HTTPS proxy mögött `true` |
-| `PUBLIC_ORIGIN` | üres | Éles HTTPS-domain; Host allowlist, production módban kötelező |
+`BACKUP_INTERVAL_HOURS=24` (0 kikapcsolás), `BACKUP_KEEP=30`, opcionális `BACKUP_DIRECTORY`. A teljes SQLite-mentés a fotókat is tartalmazza. A `RESTORE_IMPAVIDUS_LAB.cmd` ellenőrzött mentésből, a jelenlegi adatbázist megőrizve állít vissza.
 
-`DATABASE_URL` használata konfigurációs hibával leáll: nincs PostgreSQL-adapter. `SESSION_SECRET` nem szükséges: véletlen session token hashét tároljuk az adatbázisban. További edzőt a `scripts/create-coach.js` hozhat létre `NEW_COACH_USERNAME` és `NEW_COACH_PASSWORD` egyszeri környezeti változókból; nem rendel automatikusan idegen klienst hozzá. Production módban az elsőfiók-létrehozó HTTP bootstrap tiltott; a fiókot a szerveren kell inicializálni.
+A `003_username_auth.sql` megőrzi a korábbi fiókokat/hasheket; a régi e-mail-azonosító továbbra is felhasználónév. `004` táplálkozási és idempotencia-adatok, `005` adatbázis-generáció. Migráció előtt automatikus konzisztens mentés készül.
 
-## Határok és következő lépés
+## Használati határok
 
-- Ez működő **helyi modul**, nem ellenőrzött éles telepítés. A szerver csak `127.0.0.1` címen figyel. Egy valódi telefonról elérhető szolgáltatáshoz HTTPS proxy, üzemeltetés és hozzáférési konfiguráció szükséges.
-- A Service Worker csak a felületet cache-eli. Offline tényrögzítés, tartós outbox, automatikus szinkron és konfliktusfeloldás még nincs. Hibás mentés nem kap „Mentve” állapotot.
-- Étrend jelenleg szöveges útmutatás 5/6 étkezéssel; részletes ételkatalógus/grammonkénti tervszámítás, XLSX/PDF-export következő fejlesztés.
-- MFA, felületi edzői hozzárendelés-átadás, központi titkosított fotótár, titkosított/ütemezett mentés még nincs.
-- A korábbi demó teljes forrása `legacy/step2-index.html` alatt megmaradt. A régi böngészős `localStorage` adatokat nem töltjük be automatikusan: fiktív rekordokat is tartalmazhatnak. Migráció előtt külön export és ellenőrzés szükséges.
-- Nem másoltunk át wger vagy FitHub alkalmazáskódot. A wger formátumához saját importadapter készült; licencellenőrzés nélkül nem töltünk adatot. Lásd `docs/licensing.md`.
+A szerver jelenleg **csak ezen a gépen, 127.0.0.1-en** fut. Telefonos/belső hálózati HTTPS-kiszolgálás nincs beállítva. Az IndexedDB offline mentést és későbbi szinkront ad a korábban betöltött adatokhoz; első belépés, fiókkezelés, heti szerverexport és backup online szükséges. Offline munkamenet legfeljebb 12 óra. A fotók nagy mennyisége előtt külön tárhely/terhelésvizsgálat kell.
 
-A `003_username_auth.sql` migráció megőrzi a fiókokat, jelszóhasheket és kliensadatokat. A korábbi e-mail-azonosító változatlan felhasználónévként működik tovább; az edző a kliens adatlapján egyszerű névre cserélheti. Új fióknál nincs e-mail vagy meghívókód.
+A SQLite, backup, JSON-export és böngészőcache érzékeny adatot tartalmazhat, nincs alkalmazásszintű titkosítás. Lemez- és Windows-fiókvédelem, külön adathordozós mentés szükséges. Tényleges mobilos PWA-telepítés, külön Windows 10/11 gépek, hosszú terhelés/hibaszimuláció és éles HTTPS-üzemeltetés még külön elfogadási feladat.
 
-Részletek: `docs/architecture.md`, `docs/database.md`, `docs/security.md`, `docs/offline.md`, `docs/testing.md`, `docs/step3-report.md`.
+Nem került át wger/FitHub alkalmazáskód vagy külső asset. A saját wger JSON-adapter ellenőrzött CC0/CC-BY adatokat kezel. [Licencek](docs/licensing.md). Részletek: [architektúra](docs/architecture.md), [adatbázis](docs/database.md), [biztonság](docs/security.md), [offline](docs/offline.md), [tesztelés](docs/testing.md).

@@ -1,25 +1,29 @@
-# Biztonsági állapot
+# Biztonsági alapok és használati határok
 
-## Megvalósult és ellenőrzött
+## Megvalósított védelem
 
-- Jelszó: véletlen 16 bájtos só + scrypt 64 bájtos hash; összehasonlítás timingSafeEqual-lal. 12–128 karakteres jelszó; hibás vagy nem létező fióknál azonos hiba.
-- Munkamenet: véletlen 32 bájtos token, csak SHA-256 hashe kerül a SQLite-ba, 12 órás lejárat; HttpOnly, SameSite=Strict cookie. HTTPS módban Secure. Kijelentkezés és kliensarchiválás visszavonja.
-- Írások: JSON content type, eredetellenőrzés, cross-site Fetch Metadata elutasítás és munkamenethez tartozó CSRF token. Privát API nem ad CORS-hozzáférést.
-- Fiók és klienskapcsolat az adatbázisból; a kérés szerepmezője nem dönt jogosultságról. Kliens saját adatot, edző saját hozzárendelést ér el. Tényadatok az edzőnek csak olvashatók.
-- Paraméterezett SQL, bemeneti mező- és tartományvalidáció, 1,8 MB kéréslimit, személyes adatok nélküli hibanapló, request ID, archiválás és revíziók.
-- Profilkép: autentikált feltöltés/olvasás, base64 → bináris, max. 1 MB, PNG/JPEG signature és szerkezeti méretellenőrzés, max. 4096×4096. SVG/HTML elutasítva. Nem fogadunk fájlnevet vagy tárolási útvonalat. A normál felület canvasban újrakódol JPEG-re, így metaadatot nem küld. A szerver nem teljes képdekóder vagy víruskereső.
-- CSP csak saját scripteket enged; nincs inline handler, külső font vagy analitika. A UI escape-eli a felhasználói szöveget. Privát adat nem kerül a Service Worker cache-be.
-- Statikus allowlist kizárja a backend, SQL, `.env`, adatbázis, backup és legacy tartalmat. API-válaszok `Cache-Control: no-store`.
-- Belépési próbák: account/IP páronként 10 hibás kísérlet / 15 perc, memóriában. Újraindításkor ez a számláló törlődik; éles többpéldányos szolgáltatáshoz központi rate limit kell.
+- Username/password, scrypt és véletlen opaque session; csak tokenhash az adatbázisban. HttpOnly, SameSite=Strict; production Secure cookie + HTTPS PUBLIC_ORIGIN kötelező.
+- CSRF, same-origin ellenőrzés, szerveroldali szerep + aktív assignment. Idegen kliens 404, nem hitelesített API 401. Archivált kliens nem írhat, session visszavonva.
+- Az edző nem írhatja a kliens edzés/étkezés/napi állapot/fotó tényét; új mérés kifejezetten megengedett a negyedik lépés szerint.
+- Paraméterezett SQL, tranzakció, verzióütközés, idempotencia. A nyugta újraküldése előtt is jogosultságellenőrzés.
+- Statikus fájl-allowlist: `.env`, source backend, SQLite, backups és legacy nem webes letöltés. CSP, no-sniff, frame tiltás, API no-store és request ID.
+- Request méretkorlát; fotó csak PNG/JPEG, 1 MB, maximum 4096×4096, aláírás/formátumellenőrzés. SVG tiltott; frontend canvas újrakódolás. Teljes szerveroldali képdekóder/malware-szűrés nincs.
+- Revíziók előtte/utána adatokkal. Hitelesítési jelszó/hash nem kerül revízióba vagy normál logba. A strukturált HTTP-log útvonalakat rövidít, nem naplózza body/cookie-t.
+- Privát IndexedDB fiókszétválasztás, 12 órás offline session, függő mentés mellett logout tiltás. Szinkronnak érvényes ugyanazon session kell.
+- Visszaállítás: integritás, futó szolgáltatás tiltása, jelenlegi adatbázis megőrzése, session/receipt törlés, új database epoch. Automatikus backup ellenőrzött és dátumozott, fotókkal.
 
-## Helyi használat és élesítés
+## Helyi üzemeltetés
 
-Alapból csak loopback HTTP-t használunk. A localhost PWA környezet nem egyenlő egy telepített, interneten biztonságosan elérhető szolgáltatással. A Host allowlist localhost/127.0.0.1/[::1] értékeket enged, illetve a konfigurált `PUBLIC_ORIGIN` domainjét. Az első-edző bootstrap production módban letiltott; éles forgalom előtt az edzőt helyben vagy a szerver CLI-jével kell inicializálni.
+A backend 127.0.0.1-en figyel. A belső hálózat nem indok a jelszó vagy szerveroldali jogosultság elhagyására; ezeket megtartottuk a felhasználó kérte username/password belépéssel.
 
-Élesítéshez: HTTPS reverse proxy változatlan Host-tal, Secure cookie, megfelelő tűzfal és szerverfiók-jogok, teljes lemeztitkosítás, titkosított külső mentés és visszaállítási gyakorlat, adatmegőrzési/törlési folyamat, naplókezelés. Többgépes íráshoz PostgreSQL-adapter és privát objektumtár. Az edző csak a hozzá rendelt kliens felhasználónevét és jelszavát módosíthatja. Ez visszavonja a kliens munkameneteit; a változásnapló nem tárol jelszót vagy jelszóhasht. Jelenleg nincs MFA, önkiszolgáló fiókhelyreállítás vagy automatizált mentés. Ezek nem kész funkciók.
+A SQLite, backup, export és IndexedDB **nem alkalmazásszinten titkosított**. Másik Windows-felhasználó, böngészőprofil és backup-hozzáférés megfelelően elválasztandó. A helyi control-token adatfájlban van; OS-fájljogosultság védi, hálózati endpoint nem adja ki. A fotók/revíziók archiválás után is megmaradnak; megőrzési/törlési eljárás külön üzemeltetési döntés.
 
-## Mentés és visszaállítás
+Az edzői teljes backup az egész helyi adatbázist menti, nem csak a kiválasztott klienst; a felület nem adja ki a backup tartalmát vagy privát elérési útját. A helyi gép üzemeltetőjének fájlhozzáférése ettől külön jogosultság.
 
-`npm run backup` a SQLite online backup API-jával konzisztens, külön fájlt készít a `backups/` alatt. Nem másoljuk önmagában az élő WAL-os adatbázisfájlt. A mentés teljes személyes adatot és jelszóhasheket tartalmaz, **nem titkosított**.
+## Még nem beállított vagy nem ellenőrzött
 
-Visszaállítás: állítsd le a szervert; őrizd meg a jelenlegi DB és esetleges WAL/SHM fájlok külön másolatát; új könyvtárba másold a backupot; ellenőrizd `PRAGMA integrity_check` és a migrációverziókat; `SQLITE_PATH` átállítással az új fájlból indíts. Ne keverd egy régi backupot egy másik DB korábbi WAL/SHM fájljaival. Az integrációs teszt külön mentésből új `Store` példányt nyit, ellenőrzi a klienst és a ténysorozatot.
+LAN HTTPS/reverse proxy, tűzfalszabály, központi audit/riasztás, alkalmazásszintű titkosítás, MFA, önkiszolgáló jelszó-visszaállítás, külön privát objektumtár, több írós üzem és szervezeti adatmegőrzés. Tényleges egészségjellegű többfelhasználós szolgáltatás előtt ezek beállítása/elfogadása szükséges. A mostani működő helyi kiadás nem bizonyítja az éles konfigurációt.
+
+## Adatvédelem fejlesztés alatt
+
+A tesztek memória vagy külön ideiglenes SQLite-ot és szintetikus kliensadatot használnak. A böngészős teszt 8083-on, külön `work` adatbázissal futott; a tényleges 8082-es adatbázisba nem került tesztfiók vagy kitalált mérés. A Git és kiadási ZIP kizárja `.env`, data, backups, session/control-token és adatbázis fájlokat.

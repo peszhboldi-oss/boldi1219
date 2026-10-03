@@ -1,37 +1,48 @@
-# A harmadik lépés architektúrája
+# Egységes architektúra — negyedik lépés
 
-Egy meglévő projekt, egy frontend, egy same-origin API, egy adattár. Keretrendszer vagy új csomag nem került be.
+Egy repository, frontend, same-origin API és SQLite-adattár. Nincs új framework, npm runtime-függőség, Docker vagy párhuzamos adatbázis.
 
 ```text
-index.html + frontend/app.js + styles.css
-        ↓ Repository.request / saveSet (same-origin fetch)
-backend/server.js → app.js → auth.js / validation.js / metrics.js
-        ↓ Store (paraméterezett lekérdezés, tranzakció, revízió)
-data/impavidus.sqlite ← db/sqlite/001,002,003 migrációk
+Windows .lnk → START.cmd → launcher.ps1
+                         ↓ tényleges /ready + frontend ellenőrzés
+index.html / app.js / modules.js / charts.js / styles.css
+                         ↓ Repository
+                IndexedDB cache + tartós outbox
+                         ↓ fetch + CSRF + UUID Idempotency-Key
+backend/server.js → app.js → auth / nutrition / közös domain
+                         ↓ idempotencia + tranzakció + revízió
+               Store → data/impavidus.sqlite (WAL)
+                         ↓ online backup + integritásellenőrzés
+                  dátumozott backups/*.sqlite
 ```
 
-## Adatbázis-döntés
+## Modulhatárok
 
-A második lépésben a PostgreSQL célmodellje megvolt, élő kapcsolat és driver nem volt. Ezen a gépen nincs PostgreSQL/Docker. A Node 24 beépített SQLite-adaptere függőségtelepítés nélkül valódi, tartós adatbázist ad. A `Store` határába később PostgreSQL-adapter kerülhet; az SQL-dialektust és a szinkron hozzáférést akkor át kell dolgozni aszinkron tranzakciókra. Nem fut két backend, és nincs kettős írás.
+- `app.js`: hitelesítés, hozzárendelt kliens, profil, gyakorlat/terv/edzés, közös navigáció és űrlapkezelés.
+- `modules.js`: étrend, kajanapló, regeneráció, készítmény, mérés, privát fotó, heti összesítő és beállítások.
+- `domain.mjs`: naptári aritmetika, időzónás mai nap, streak és edzésstatisztika; a backend ugyanazokat a függvényeket tölti be.
+- `repository.js`/`offline.js`: tartós mentés a hálózati kérés előtt, saját fiókhoz kötött cache, optimista vetítés, FIFO-szinkron, kifejezett ütközésfeloldás.
+- `nutrition.js`: központi/privát katalógus, étrend, érvényesség, grammarányos számítás, pillanatfelvételek, fogyasztás és összesítés.
+- `idempotency.js`: account+kulcs egyedi nyugta, kérésdigest, ugyanabban a tranzakcióban tárolt eredmény. Újraküldés előtt a jelenlegi jogosultságot ellenőrzi.
+- `backups.js`/`restore.js`: natív SQLite online backup, integritás, megőrzés, leállított szolgáltatásba visszaállítás, jelenlegi állomány megőrzése.
+- `launcher.ps1`/`local-control.js`: rejtett Node-folyamat, projektazonosító, egészségellenőrzés, hitelesített helyi leállítási fájl, kényszerített kill nélkül.
 
-A `db/migrations/001_initial_schema.sql` a korábbi PostgreSQL terv, nem az aktuális runtime-séma; a két sémát nem szabad egyszerre élesnek tekinteni. PostgreSQL-re áttéréshez új célmigráció és ellenőrzött adatexport/import kell. SQLite egy helyi Node-folyamathoz megfelelő; több író példányhoz és nagy fotótárhoz PostgreSQL + privát objektumtár javasolt.
+## Adat és jogosultság
 
-## Fiókok és jogosultságok
+A kliensprofil, verziózott terv és tényleges napló külön rekord. Edzésindításkor a tervből új sorozatok jönnek létre NULL tényértékekkel. Étrendmásoláskor fogyasztás=0. Későbbi terv/katalógus módosítása nem írja át a múltat. Kliens saját tényt ír; hozzárendelt edző tervet, dózislistát, megjegyzést, profilt és új mérést. Idegen kliens 404; session és assignment minden API-kérésnél szerveroldali.
 
-Az első edző a helyi üres adatbázisban létrehozza saját fiókját. Az edző a kliens létrehozásakor megadja a felhasználónevet és jelszót: a profil, használható kliensfiók és edzői kapcsolat egyetlen tranzakcióban keletkezik. A kliens közvetlenül belép, az edző a hozzá rendelt kliens belépési adatait később is módosíthatja. A szerep és a kapcsolat minden adatvégponton szerveroldali ellenőrzést kap. Idegen kliensre 404 válasz érkezik; az edző a kliens tényadatait nem írhatja.
+## SQLite döntés
 
-A régi jelszó nélküli névválasztást a harmadik lépés kifejezett hitelesítési követelménye felváltotta. Az archiválás adatot nem töröl, de a kliens munkameneteit visszavonja. A visszaállítás ismét engedi a belépést, korábbi cookie-t nem aktivál újra.
+A Node 24 beépített `node:sqlite` modullal függőségtelepítés nélkül ellenőrizhető, tartós adatbázis jött létre. A runtime-migrációk kizárólag `db/sqlite/001…005.sql`. A korábbi PostgreSQL-célterv `db/migrations/001_initial_schema.sql` történeti dokumentum, nem második élő adatbázis.
 
-## Terv, edzés és statisztika
+Több gépes, nagy terhelésű üzemhez aszinkron PostgreSQL-adapter, új célmigráció, ellenőrzött adatátvitel és privát objektumtár kell. A mostani szinkron SQLite Store nem állítható át pusztán egy DATABASE_URL megadásával.
 
-A terv verziózott, rendezett JSON-struktúrában tárol sorozatcélokat. Edzésindításkor új workout és relációs workout_sets sorok jönnek létre, a terv és gyakorlat akkori adataival. Tényleges súly, ismétlés és RPE NULL. A későbbi terv-/gyakorlatmódosítás nem érinti a pillanatfelvételt.
+## Frissítés és helyreállítás
 
-Csak explicit `completed` sorozat számít teljesítettnek. Hiányzó tényadat NULL, nem tervből képzett vagy automatikus nulla. Extra ténysorozat külön naplóbejegyzés, nem módosítja a tervet. Módosítások ugyanabban a tranzakcióban kapnak előtte/utána revíziót. A verziószám elavult mentéskor 409-et eredményez.
+A Service Worker csak verziózott felületet cache-el; privát API soha nem kerül CacheStorage-ba. A waiting frissítés minden megnyitott lap mentett állapotát ellenőrzi. Nem válaszoló/régi lap blokkol: adatmentés után be kell zárni.
 
-## Korábbi modulok
+Migráció előtt `VACUUM INTO` ad konzisztens biztonsági példányt. Visszaállítás előtt teljes jelenlegi backup, session/nyugta törlése és új adatbázis-generáció; régi böngészős outbox külön konfliktus. A data/backups nincs a buildben vagy forráscsomagban.
 
-A tíz navigációs cél megmaradt. Napi napló, kézi étkezésnapló, mérés, privát fotó, szöveges étrend és dózislista a közös adatbázishoz kapcsolódik. A korábbi demó részletes ételtervezője archivált forrásként megmaradt; az új hitelesített étrendmodulban a strukturált ételkatalógus nincs kész. Ezt a felület jelzi.
+## Üzemeltetési határ
 
-## Üzemeltetés
-
-Fájl-allowlist, CSP, request ID és strukturált napló; API-válaszok `no-store`. A log nem tartalmaz e-mailt, cookie-t, kliensazonosítót, jegyzetet, jelszót vagy képtartalmat. A SQLite-migráció induláskor atomikusan, egyszer fut. A backup a SQLite online backup API-jával készül; a visszaolvasás külön fájlból integrációs tesztelt.
+Loopback helyi kiadás. HTTPS/belső hálózat, központi titkosítás, MFA/önkiszolgáló fiókhelyreállítás, privát objektumtár és nagy terhelés még nincs beállítva. A működő helyi modult nem tekintjük ezek ellenőrzésének.
