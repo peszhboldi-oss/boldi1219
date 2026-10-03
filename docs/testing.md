@@ -2,19 +2,19 @@
 
 ## Automatikus csomag
 
-`node tests/run.js`: Node beépített tesztek egy folyamatban, memória vagy elkülönített ideiglenes SQLite-adatbázissal. Nincs worker/spawn, új függőség vagy éles kliensadat. Utolsó eredmény: **86 sikeres, 0 hibás, 0 kihagyott**.
+`node tests/run.js`: Node beépített tesztek egy folyamatban, memória vagy elkülönített ideiglenes SQLite-adatbázissal. Nincs worker/spawn, új függőség vagy éles kliensadat. Utolsó eredmény: **88 sikeres, 0 hibás, 0 kihagyott**.
 
 | Terület | Automatizált ellenőrzés |
 |---|---|
 | Hitelesítés | Username, hash, session, CSRF/origin, archiválás, credential-változás és sessionvisszavonás |
-| Hozzárendelés | Idegen kliens/edző 404; jogosulatlan tény- és tervírás; nyugta-replay után is aktuális jog |
+| Hozzárendelés | Idegen kliens/edző 404; jogosulatlan tény- és tervírás; nyugta-replay után is aktuális jog; másik lapon váltott account nem kerül régi cache-be |
 | Edzés | Tervből NULL tény, snapshot, verzió, extra sorozat, kategóriák, RPE, pihenőnapütközés, korábbi eredmény |
 | Étrend/étel | Katalógusprivát/központi, duplikáció, grammok, NULL és valódi nulla, 5/6 étkezés, dátumok, másolat/archiválás |
 | Fogyasztás | Másolat nem tény, explicit consumed, célkülönbség, reference snapshot, kézi ételre váltás, visszavonás |
 | Streak | Hétváltás, második hiány, mai nyitott/lezárt nap, monotón maximum tényíráskor köztes GET nélkül |
 | Napló/készítmény | Regeneráció/prefs, gyógyszeridőszak, változástörténet, fotó/measurement jogosultság |
 | Export | Hétfő/dátumtartomány, CSV formula-védelem, XLSX ZIP és szövegcellák/CRC |
-| Offline | Hálózati hibák, új Repositoryból tartós sor, FIFO, egyszeri mentés, sessionazonosság, konfliktus és feloldás, régi epoch, tárhelyíráshiba |
+| Offline | Hálózati hibák és részben beérkezett válasz timeoutja, új Repositoryból tartós sor, FIFO, egyszeri mentés, sessionazonosság, konfliktus és feloldás, régi epoch, tárhelyíráshiba |
 | PWA update | Több nyitott lapból egy mentetlen állapot blokkol; minden jóváhagyás enged |
 | Backup/restore | Natív mentés, integrity_check, fotóadatok, régi adatbázis megőrzése, új epoch, sérült mentés és futó szerver tiltása, auto-retention |
 | Import | Saját wger JSON-adapter szintetikus exporttal, licenc/szerző/forrás és kategória, duplikáció |

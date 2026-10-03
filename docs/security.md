@@ -4,6 +4,7 @@
 
 - Username/password, scrypt és véletlen opaque session; csak tokenhash az adatbázisban. HttpOnly, SameSite=Strict; production Secure cookie + HTTPS PUBLIC_ORIGIN kötelező.
 - CSRF, same-origin ellenőrzés, szerveroldali szerep + aktív assignment. Idegen kliens 404, nem hitelesített API 401. Archivált kliens nem írhat, session visszavonva.
+- A Repository az elvárt account UUID-t is küldi; a szerver eltérő session esetén 401-et ad még adatlekérés előtt. Másik lapon váltott fiók adata nem kerül a régi account helyi cache-ébe.
 - Az edző nem írhatja a kliens edzés/étkezés/napi állapot/fotó tényét; új mérés kifejezetten megengedett a negyedik lépés szerint.
 - Paraméterezett SQL, tranzakció, verzióütközés, idempotencia. A nyugta újraküldése előtt is jogosultságellenőrzés.
 - Statikus fájl-allowlist: `.env`, source backend, SQLite, backups és legacy nem webes letöltés. CSP, no-sniff, frame tiltás, API no-store és request ID.

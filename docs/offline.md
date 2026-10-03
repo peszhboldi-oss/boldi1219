@@ -14,6 +14,8 @@ Business írás sorrendje:
 
 A támogatott útvonalak: saját/engedélyezett foods; kliens plans/workouts/sets/rest-days/notes/measurements/food-logs/daily-logs/records/diets/preferences. A szerver minden küldésnél újra ellenőrzi a tényleges jogosultságot. Terv/étkezés-másolás stabil UUID-kkal történik; függő új edzés sorozatai az új edzés után szinkronizálódnak.
 
+A hálózati timeout a teljes JSON-válasz beérkezéséig aktív. Részleges válasz után a tartós művelet újraküldhető. Az elvárt account fejléc a több lapos fiókváltást 401-gyel jelzi még az adatlekérés előtt; a másik fiók válasza nem cache-elődik a régi fiókhoz.
+
 ## Konfliktusok
 
 Verzióütközés 409, egyéb 4xx is látható hibasor. A helyi módosítás nem tűnik el. A felhasználó exportálhat, megnézheti a szerververziót, vagy tudatosan az egyik változatot választhatja. Helyi PATCH új szerververzióval és új kulccsal küldhető; szerverváltozat választásakor a helyi művelet külön `resolved` rekordban marad.

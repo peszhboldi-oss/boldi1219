@@ -58,7 +58,7 @@ A személyes adatokat kezelő többeszközös éles 1.0 elfogadásához a fenti 
 
 | Ellenőrzés | Eredmény |
 |---|---|
-| Automatikus Node egység/HTTP/SQLite/integráció | **86 sikeres, 0 hibás, 0 kihagyott** |
+| Automatikus Node egység/HTTP/SQLite/integráció | **88 sikeres, 0 hibás, 0 kihagyott** |
 | Windows indítási script | **10 sikeres**: tiszta install/első indítás/szóközös útvonal, második START ugyanazon PID, CHECK, RESTART, STOP megőrzéssel; leállt/hiányzó Node/hibás port/foglalt port/sérült DB elvárt hiba |
 | Windows restore script | Backup kiválasztott path + IGEN stdin, leállítás, helyreállítás, újraindítás/ready, új leállítás: **sikeres**, elkülönített tesztmappában |
 | Szintaktikai check | **43 JS/MJS fájl OK**; nem ESLint, VM Modules ExperimentalWarning várható |
@@ -98,6 +98,8 @@ Részletes reprodukció: `docs/testing.md`, `docs/browser-step4-verification.md`
 - `c701098`: a korábban kért username/password átállás, email/meghívó és Alex felirat nélkül.
 - `7d36a0c`: egységes táplálkozás, tartós offline/sync, PWA-védelem és Windows/backup/restore működés.
 - `b3f091d`: HTTP-backup jogosultság és privát fotó-visszaolvasás tesztje.
+- `977f832`: több lapos fiókváltás esetén a régi account cache-ének védelme, szerveroldali account-ellenőrzéssel.
+- `befad38`: timeout a teljes válasz beérkezéséig, részleges hálózati válasz regressziós tesztje.
 - A dokumentáció külön commitban rögzítve; az átadási commitlista tartalmazza ennek azonosítóját. Ág: `feature/client-workout-module`.
 
 Git remote nincs konfigurálva, ezért pull request nem jött létre. A helyi commitok ellenőrizhetők. A csomag Git archive a végső forrásból, `.env`, adatbázis, mentés és control-token nélkül. Új külső alkalmazáskód/asset/licencfüggőség nem került be. A saját wger-adapter CC0/CC-BY és forrás/szerző ellenőrzést kezel; élő teljes wger-import nem történt. FitHub-kódot engedélyező licenc hiányában nem másoltunk. Lásd `docs/licensing.md`.
