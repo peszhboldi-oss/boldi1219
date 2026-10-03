@@ -49,7 +49,9 @@ function createApi({store=new Store(),secure=false,timeZone='Europe/Budapest',lo
       const url=new URL(req.url,'http://localhost'),p=url.pathname.slice(API_PREFIX.length).split('/').filter(Boolean),method=req.method;
       if(!url.pathname.startsWith(API_PREFIX+'/'))V.fail('Nincs ilyen API.',404,'not-found');if(!['GET','POST','PATCH','DELETE'].includes(method))V.fail('Nem támogatott metódus.',405,'method-not-allowed');
       if(['health','ready'].includes(p[0])&&method==='GET'){store.get('SELECT 1');if(p[0]==='ready'&&store.get('PRAGMA quick_check').quick_check!=='ok')throw new Error('database-integrity');return json(res,{status:'ok',app:'IMPAVIDUS LAB',instance:require('../scripts/local-control').instance,database:'sqlite',authentication:'sessions',timeZone,version:require('../package.json').version});}
-      const u=auth.session(req),b=method==='GET'?{}:(auth.mutation(req,u),await body(req));
+      const u=auth.session(req),expectedAccount=req.headers['x-impavidus-account'];
+      if(p[0]!=='auth'&&expectedAccount&&expectedAccount!==u?.id)V.fail('Másik lapon megváltozott a bejelentkezett fiók. Töltsd újra az alkalmazást; a korábbi fiók helyi mentései megmaradtak.',401,'account-changed');
+      const b=method==='GET'?{}:(auth.mutation(req,u),await body(req));
       if(p[0]==='auth'){
         if(method==='GET'&&p[1]==='session')return json(res,{user:u?{id:u.id,username:u.username,role:u.role,client_id:u.client_id,csrf:u.csrf}:null,setupRequired:!store.get('SELECT 1 FROM accounts WHERE role IN (\'coach\',\'admin\')'),today:today(),timeZone,databaseEpoch:store.get('SELECT value FROM app_meta WHERE key=?','database_epoch').value});
         if(method==='POST'&&p[1]==='setup')return json(res,auth.setup(res,b),201);

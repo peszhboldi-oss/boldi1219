@@ -1,5 +1,5 @@
 // Versioned, immutable app shell. API and personal records stay out of CacheStorage.
-const V='impavidus-shell-v13',FILES=['./','./index.html','./frontend/app.js','./frontend/styles.css','./frontend/repository.js','./frontend/modules.js','./frontend/offline.js','./frontend/domain.mjs','./frontend/charts.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const V='impavidus-shell-v14',FILES=['./','./index.html','./frontend/app.js','./frontend/styles.css','./frontend/repository.js','./frontend/modules.js','./frontend/offline.js','./frontend/domain.mjs','./frontend/charts.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(FILES)))});
 // Every open tab must acknowledge that its forms and outbox are safe to reload.
 let updateCheck=null;
