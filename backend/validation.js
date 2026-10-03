@@ -7,6 +7,7 @@ function date(value) { if (typeof value!=='string' || !/^\d{4}-\d{2}-\d{2}$/.tes
 function bool(value, fallback=false) { if (value==null) return fallback; if (typeof value!=='boolean') fail('Logikai érték szükséges.'); return value; }
 function username(value) { const name=text(value,'Felhasználónév',254,true).toLowerCase(); if (name.length<3 || !/^[a-z0-9][a-z0-9._@+-]*$/.test(name)) fail('A felhasználónév legalább 3 karakter: betű, szám, pont, kötőjel vagy aláhúzás.'); return name; }
 function password(value) { if (typeof value!=='string' || value.length<12 || value.length>128) fail('A jelszó 12–128 karakter hosszú legyen.'); return value; }
+function uuid(value) { if(typeof value!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value))fail('Érvénytelen rekordazonosító.');return value; }
 function version(body, current) { if (!Number.isInteger(body.version) || body.version!==current.version) fail('Az adat közben megváltozott. Töltsd újra, és ellenőrizd a módosítást.',409,'version-conflict'); }
 function profile(b) { return { name:text(b.name,'Név',120,true),starting_weight:number(b.starting_weight,'Kezdősúly',20,500),height:number(b.height,'Magasság',80,250),target_weight:number(b.target_weight,'Célsúly',20,500),goal:text(b.goal,'Cél',2000),phase:text(b.phase,'Fázis',120),start_date:date(b.start_date) }; }
 const CATEGORIES=['free_weight','machine','bodyweight','cardio'];
@@ -23,4 +24,4 @@ function image(base64) {
   if (!width || !height || width>4096 || height>4096) fail('A kép nem felismerhető, vagy túl nagy (maximum 4096×4096).');
   return { bytes,type };
 }
-module.exports={Problem,fail,text,number,date,bool,username,password,version,profile,exercise,image};
+module.exports={Problem,fail,text,number,date,bool,username,password,uuid,version,profile,exercise,image};

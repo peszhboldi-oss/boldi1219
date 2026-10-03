@@ -11,13 +11,14 @@ const ROOT = path.resolve(__dirname, '..');
 const MIME = Object.freeze({
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
 });
-const PUBLIC_FILES = new Set(['index.html', 'sw.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'frontend/app.js', 'frontend/styles.css', 'frontend/repository.js']);
+const PUBLIC_FILES = new Set(['index.html', 'sw.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'frontend/app.js', 'frontend/styles.css', 'frontend/repository.js', 'frontend/modules.js', 'frontend/offline.js','frontend/domain.mjs','frontend/charts.js']);
 
 function staticPath(urlPath) {
   let decoded;
@@ -79,6 +80,7 @@ function createServer({ logger = console, store, secure = false, timeZone = 'Eur
       response.end(request.method === 'HEAD' ? undefined : contents);
     });
   });
+  server.impavidusStore=store;
   server.on('close', () => { if (ownedStore) store.close(); });
   return server;
 }
@@ -94,6 +96,7 @@ function start() {
   if (process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'true') throw new Error('Éles módban HTTPS proxy és COOKIE_SECURE=true szükséges.');
   const publicOrigin = process.env.PUBLIC_ORIGIN;
   if (process.env.NODE_ENV === 'production' && (!publicOrigin || new URL(publicOrigin).protocol !== 'https:')) throw new Error('Éles módban HTTPS PUBLIC_ORIGIN szükséges.');
+  require('./backups').settings();
   const server = createServer({ secure: process.env.COOKIE_SECURE === 'true', timeZone, publicOrigin });
   server.on('error', error => {
     console.error(error.code === 'EADDRINUSE' ? `A ${port} port már foglalt. Állíts be másik PORT értéket az .env fájlban.` : `A szerver nem indult: ${error.code || error.message}`);
@@ -101,7 +104,9 @@ function start() {
     process.exitCode = 1;
   });
   server.listen(port, '127.0.0.1', () => console.info(`IMPAVIDUS LAB: http://127.0.0.1:${port} · SQLite · ${timeZone}`));
-  const shutdown = () => server.close(() => process.exit(0));
+  const stopBackups=require('./backups').schedule(server.impavidusStore,console);
+  let stopping=false;const shutdown = async() => {if(stopping)return;stopping=true;await stopBackups();server.close(() => process.exit(0));};
+  require('../scripts/local-control').attach(server,shutdown);
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
   return server;

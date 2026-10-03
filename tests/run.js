@@ -10,3 +10,7 @@ require('./integration.test');
 require('./wger-import.test');
 require('./auth.test');
 require('./username.test');
+require('./step4.test');
+require('./offline.test');
+require('./restore.test');
+require('./pwa.test');

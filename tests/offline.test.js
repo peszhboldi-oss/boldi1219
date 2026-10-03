@@ -1,0 +1,36 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
+class MemoryLocal{
+ constructor(){this.rows=new Map();}async all(){return [...this.rows].map(([key,value])=>({key,value:structuredClone(value)}));}async get(k){return structuredClone(this.rows.get(k));}async put(k,v){this.rows.set(k,structuredClone(v));}async remove(k){this.rows.delete(k);}async write(rows){for(const r of rows)if(r.remove)this.rows.delete(r.key);else this.rows.set(r.key,structuredClone(r.value));}async enqueue(id,op){op.sequence=(this.rows.get('sequence:'+id)||0)+1;await this.put('sequence:'+id,op.sequence);await this.put('outbox:'+id+':'+op.key,op);}
+}
+async function setup(){
+ const {Repository}=await import(pathToFileURL(path.resolve(__dirname,'../frontend/repository.js')).href),repo=Object.create(Repository.prototype);Object.assign(repo,{local:new MemoryLocal(),user:{id:'a'},connected:true,csrf:'csrf',warmed:new Set(),timeZone:'Europe/Budapest'});global.window={dispatchEvent(){}};global.CustomEvent=class{constructor(type){this.type=type;}};return repo;
+}
+test('offline outbox: hálózati hiba, újratöltés, sorrend és automatikus szinkron',async()=>{
+ const repo=await setup();await repo.local.put(repo.cacheKey('/clients/c/measurements'),[]);let server=[];repo.raw=async()=>{throw Object.assign(new Error('network'),{status:0});};
+ await repo.request('/clients/c/measurements','POST',{date:'2026-10-03',weight:88});assert.equal((await repo.pending()).length,1);assert.equal((await repo.local.get(repo.cacheKey('/clients/c/measurements')))[0].weight,88);
+ const fresh=await setup();fresh.local=repo.local;fresh.raw=async(path,method,data,key)=>{if(path==='/auth/session')return {user:{id:'a',csrf:'fresh'}};server.push({data,key});return {id:data._local_id};};await fresh.sync();assert.equal(server.length,1);assert.equal((await fresh.pending()).length,0);await fresh.sync();assert.equal(server.length,1);
+});
+test('szinkronhiba nem törli a helyi változást; idegen fiók nem küldheti',async()=>{
+ const repo=await setup();repo.connected=false;await repo.local.put(repo.cacheKey('/clients/c/food-logs'),[{id:'f',date:'2026-10-03',grams:100,version:1,consumed:0}]);await repo.request('/clients/c/food-logs/f','PATCH',{grams:150,version:1,consumed:true});let calls=0;
+ repo.raw=async p=>{if(p==='/auth/session')return {user:{id:'b'}};calls++;};await assert.rejects(repo.sync(),e=>e.status===401);assert.equal(calls,0);assert.equal((await repo.pending()).length,1);
+ repo.raw=async p=>{if(p==='/auth/session')return {user:{id:'a',csrf:'x'}};throw Object.assign(new Error('Verzióütközés'),{status:409});};await repo.sync();const pending=await repo.pending();assert.equal(pending[0].status,409);assert.equal(pending[0].data.grams,150);assert.equal((await repo.cached('/clients/c/food-logs'))[0].grams,150);
+ repo.raw=async p=>p==='/auth/session'?{user:{id:'a',csrf:'x'}}:[{id:'f',version:2,grams:120}];await repo.resolve(pending[0].key,'server');assert.equal((await repo.pending()).length,0);assert.ok((await repo.local.all()).some(r=>r.key.startsWith('resolved:a:')));
+});
+test('offline sorozat és étrend származtatott tényadatai',async()=>{
+ const {project}=await import(pathToFileURL(path.resolve(__dirname,'../frontend/offline.js')).href);const op={path:'/clients/c/plans',method:'POST',data:{_local_id:'p',name:'Terv',exercises:[]}};assert.equal(project([],op.path,op,()=>[])[0].active,1);
+ const detail={id:'w',version:1,sets:[{id:'s',version:1,completed:0}]};const changed=project(detail,'/clients/c/workouts/w',{path:'/clients/c/workouts/w/sets/s',method:'PATCH',data:{version:1,completed:true,actual_weight:50,actual_reps:10}},()=>[]);assert.equal(changed.sets[0].completed,true);assert.equal(changed.sets[0].version,2);
+});
+test('verzióütközés tudatos helyi feloldása új mentésazonosítóval',async()=>{
+ const repo=await setup();const row={key:crypto.randomUUID(),path:'/foods/f',method:'PATCH',data:{version:1,name:'Helyi név'},created_at:new Date().toISOString(),error:'Ütközés',status:409};await repo.local.put('outbox:a:'+row.key,row);let saved;
+ repo.raw=async(p,m,data,key)=>{if(p==='/foods')return [{id:'f',version:3,name:'Szerver név'}];if(p==='/auth/session')return {user:{id:'a',csrf:'x'}};saved={data,key};return {id:'f',version:4};};await repo.resolve(row.key,'local');assert.equal(saved.data.version,3);assert.notEqual(saved.key,row.key);assert.equal((await repo.pending()).length,0);
+});
+test('visszaállított adatbázisba régi offline változás nem kerül automatikusan',async()=>{
+ const repo=await setup();repo.databaseEpoch='before';repo.connected=false;await repo.local.put(repo.cacheKey('/clients/c/measurements'),[]);await repo.request('/clients/c/measurements','POST',{date:'2026-10-03',weight:88});let mutations=0;
+ repo.raw=async p=>{if(p==='/auth/session')return {user:{id:'a',csrf:'fresh'},databaseEpoch:'after'};mutations++;};await repo.sync();const rows=await repo.pending();assert.equal(mutations,0);assert.equal(rows.length,1);assert.equal(rows[0].status,409);assert.equal(rows[0].data.weight,88);assert.match(rows[0].error,/visszaállt/);
+});
+test('betelt helyi tárhely esetén nincs hálózati írás vagy hamis siker',async()=>{
+ const repo=await setup();let calls=0;repo.local.put=async()=>{throw Object.assign(new Error('A tárhely betelt'),{name:'QuotaExceededError'});};repo.raw=async()=>{calls++;return {ok:true};};await assert.rejects(repo.request('/clients/c/measurements','POST',{date:'2026-10-03',weight:88}),/tárhely/);assert.equal(calls,0);assert.equal(repo.lastPending,false);
+});
+test('azonos időbélyeg és visszaálló óra mellett is FIFO a tartós műveletsor',async()=>{const repo=await setup();await repo.local.put('outbox:a:z',{key:'z',created_at:'2026-10-03T01:00:00Z',sequence:1});await repo.local.put('outbox:a:a',{key:'a',created_at:'2026-10-03T01:00:00Z',sequence:2});await repo.local.put('outbox:a:b',{key:'b',created_at:'2026-10-02T01:00:00Z',sequence:3});assert.deepEqual((await repo.pending()).map(r=>r.key),['z','a','b']);});
+test('offline saját étel választható, kézi ételreferencia törlődik és grammarányos tény számolódik',async()=>{const {project}=await import(pathToFileURL(path.resolve(__dirname,'../frontend/offline.js')).href),cache=()=>[];const food=project([],'/foods',{actorId:'a',actorRole:'client',path:'/foods',method:'POST',data:{_local_id:'f',name:'Saját étel',protein:20}},cache)[0];assert.equal(food.active,1);assert.equal(food.owner_id,'a');assert.equal(food.scope,'private');let rows=[{id:'l',grams:100,protein:20,food_id:'f',reference:{name:'Régi',protein:20},version:1}];rows=project(rows,'/clients/c/food-logs',{path:'/clients/c/food-logs/l',method:'PATCH',data:{version:1,food_id:'',name:'Kézi',grams:100,protein:10}},cache);assert.equal(rows[0].reference,null);rows=project(rows,'/clients/c/food-logs',{path:'/clients/c/food-logs/l',method:'PATCH',data:{version:2,grams:150}},cache);assert.equal(rows[0].protein,15);assert.equal(rows[0].name,'Kézi');});

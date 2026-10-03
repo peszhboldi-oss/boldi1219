@@ -2,3 +2,4 @@
 *.cmd text eol=crlf
 *.png binary
 legacy/step2-index.html -text
+*.ico binary
