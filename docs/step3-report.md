@@ -48,6 +48,7 @@ Módosítva:
 Létrehozva:
 
 - `INDITAS.cmd` — Windows indító;
+- `.gitattributes` — egységes forrássortörések, Windows indító CRLF-kivétele;
 - `frontend/app.js`, `frontend/styles.css`, `frontend/repository.js` — egységes felület, design és mentési határ;
 - `backend/auth.js`, `backend/store.js`, `backend/validation.js`, `backend/metrics.js`, `backend/wger-import.js`;
 - `db/sqlite/001_core.sql`, `db/sqlite/002_snapshots_and_preferences.sql`;
