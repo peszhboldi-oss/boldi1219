@@ -2,6 +2,12 @@
 
 Magyar, prémium bordó–fekete edző–kliens napló. Egy Node.js 24+ folyamat szolgálja ki a vanilla JS PWA-t és a hitelesített API-t, valódi SQLite-adatbázissal. Új külső csomag telepítése nem szükséges.
 
+## Kipróbálás megőrzött demóadatokkal
+
+[20 napos bemutató, három fiókkal és illusztrációs fotókkal](demo/README.md).
+Friss projektmásolatban: `node scripts/prepare-demo.js`, majd `node server.js`.
+A meglévő adatbázist az inicializáló nem írja felül.
+
 ## Mindennapi indítás
 
 Windows: dupla kattintás az **IMPAVIDUS LAB** asztali ikonra vagy a `START_IMPAVIDUS_LAB.cmd` fájlra. Cím: **http://127.0.0.1:8082**. A szerver a háttérben fut; leállítás `STOP_IMPAVIDUS_LAB.cmd`, újraindítás `RESTART_IMPAVIDUS_LAB.cmd`, ellenőrzés `CHECK_IMPAVIDUS_LAB.cmd`.
