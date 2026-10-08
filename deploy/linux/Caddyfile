@@ -1,0 +1,9 @@
+# Replace this domain and use the same HTTPS origin in impavidus-lab.env.
+app.your-domain.example {
+    # Provision accounts through the server CLI, never the public setup route.
+    @setup path /api/v1/auth/setup
+    respond @setup 403
+
+    # Keep the original Host and Origin: the backend checks both.
+    reverse_proxy 127.0.0.1:8082
+}
