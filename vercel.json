@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "node scripts/build-public-demo.js",
+  "installCommand": "node -e \"console.log('No external dependencies')\"",
+  "outputDirectory": "dist",
+  "regions": ["fra1"],
+  "functions": {
+    "api/demo.js": {
+      "includeFiles": "{demo/impavidus-demo.sqlite,db/sqlite/**,frontend/domain.mjs,package.json}",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [{"source": "/api/v1/:path*", "destination": "/api/demo?route=/api/v1/:path*"}],
+  "headers": [
+    {"source": "/(.*)", "headers": [
+      {"key": "X-Content-Type-Options", "value": "nosniff"},
+      {"key": "X-Frame-Options", "value": "DENY"},
+      {"key": "Referrer-Policy", "value": "strict-origin-when-cross-origin"},
+      {"key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}
+    ]},
+    {"source": "/sw.js", "headers": [{"key": "Cache-Control", "value": "no-cache"}]},
+    {"source": "/", "headers": [{"key": "Cache-Control", "value": "no-cache"}]}
+  ]
+}

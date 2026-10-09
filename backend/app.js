@@ -8,9 +8,9 @@ const API_PREFIX='/api/v1';
 function sendProblem(res,status,title,detail,code) {res.writeHead(status,{'content-type':'application/problem+json; charset=utf-8'});res.end(JSON.stringify({type:`https://impavidus.local/problems/${code}`,title,status,detail,code}));}
 function sendJson(res,data,status=200) {res.writeHead(status,{'content-type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));}
 async function body(req) {let size=0,chunks=[];for await(const c of req){size+=c.length;if(size>1800000)V.fail('A kérés túl nagy.',413,'body-too-large');chunks.push(c);}try{const b=JSON.parse(Buffer.concat(chunks).toString());if(!b||typeof b!=='object'||Array.isArray(b))V.fail('JSON-objektum szükséges.');return b;}catch(e){if(e instanceof V.Problem)throw e;V.fail('Hibás JSON.',400,'json');}}
-function createApi({store=new Store(),secure=false,timeZone='Europe/Budapest',logger=console}={}) {
+function createApi({store=new Store(),secure=false,timeZone='Europe/Budapest',logger=console,dateProvider=()=>M.today(timeZone)}={}) {
   const json=(res,data,status=200)=>{if(res.factClient)metrics(store.get('SELECT * FROM clients WHERE id=?',res.factClient));return sendJson(res,data,status);};
-  const auth=createAuth(store,{secure,allowSetup:process.env.NODE_ENV!=='production'}),now=()=>new Date().toISOString(),today=()=>M.today(timeZone);
+  const auth=createAuth(store,{secure,allowSetup:process.env.NODE_ENV!=='production'}),now=()=>new Date().toISOString(),today=dateProvider;
   const coach=u=>{if(!['coach','admin'].includes(u.role))V.fail('Edzői jogosultság szükséges.',403,'forbidden');};
   const editable=c=>{if(c.archived_at)V.fail('Az archivált kliens adatai csak olvashatók.',409,'archived');};
   const day=x=>{const d=V.date(x);if(d>today())V.fail('Tényadat nem rögzíthető jövőbeli napra.');return d;};
