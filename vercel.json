@@ -7,7 +7,7 @@
   "regions": ["fra1"],
   "functions": {
     "api/demo.js": {
-      "includeFiles": "{demo/impavidus-demo.sqlite,db/sqlite/**,frontend/domain.mjs,package.json}",
+      "includeFiles": "{demo/impavidus-demo.sqlite,db/sqlite/**,frontend/domain.mjs,generated/demo-domain.cjs,package.json}",
       "maxDuration": 30
     }
   },

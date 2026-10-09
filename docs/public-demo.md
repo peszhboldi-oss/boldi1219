@@ -16,6 +16,8 @@ Node.js 24, függőségtelepítés nélkül. Build: `node scripts/build-public-d
 
 A saját gépes alkalmazás továbbra is `node server.js` alatt fut a saját adatbázisával. A demó dátumának és írási tiltásának konfigurációja csak az `api/demo.js` belépési pontban aktív. A `dist/` generált könyvtár.
 
+A felhős build a közös `frontend/domain.mjs` tiszta számításait CommonJS modulformában is előállítja (`generated/demo-domain.cjs`), mert a Vercel Node környezete nem engedi az ESM szinkron `require()` betöltését. A számítások forrása továbbra is egyetlen fájl; a saját gépes backend az eredeti modult használja.
+
 ## Elérhetőség és korlátok
 
 A felhős demóhoz nincs helyi alagút, bekapcsolva hagyott PC vagy 36 órás lejárat beállítva. A szolgáltató üzemzavara és fiókkorlátja az elérést befolyásolhatja. Megtekinthető bemutató; új, tartós kliensadat rögzítéséhez adatbázist és fotótárhelyet biztosító éles telepítés szükséges.

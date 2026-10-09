@@ -1,5 +1,6 @@
 'use strict';
 // Public showcase only. The original app continues to use backend/server.js.
+process.env.IMPAVIDUS_PUBLIC_DEMO='1';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {createHash,createHmac,timingSafeEqual}=require('node:crypto');
 const {Store}=require('../backend/store');

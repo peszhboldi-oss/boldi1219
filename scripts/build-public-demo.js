@@ -1,6 +1,13 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),dist=path.join(root,'dist');
+// Vercel's runtime does not support require(ESM). Generate the module format
+// from the single canonical implementation; no calculation is duplicated.
+const domain=fs.readFileSync(path.join(root,'frontend/domain.mjs'),'utf8');
+const exportStatement=domain.match(/export \{ ([a-zA-Z0-9_, ]+) \};?\s*$/);
+if(!exportStatement||/\bimport\s/.test(domain))throw new Error('Demo build: shared domain module format changed');
+const generated=path.join(root,'generated');fs.mkdirSync(generated,{recursive:true});
+fs.writeFileSync(path.join(generated,'demo-domain.cjs'),"'use strict';\n"+domain.replace(exportStatement[0],'module.exports={'+exportStatement[1]+'};\n'));
 require('./build');
 fs.copyFileSync(path.join(root,'frontend/demo-ui.js'),path.join(dist,'frontend/demo-ui.js'));
 const repository=path.join(dist,'frontend/repository.js');
