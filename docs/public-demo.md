@@ -1,5 +1,9 @@
 # Nyilvános IMPAVIDUS LAB demó
 
+Nyilvános cím: https://impavidus-lab-demo.vercel.app/
+
+2026-10-09-én az anonim oldalmegnyitás, az SQLite készültségi végpont, mindhárom demóbelépés, az edző két klienshez és a kliens saját adatlapjához való hozzáférése, minden kitöltött adatcsoport, a kilépés, a módosítási tiltás és a nyers adatbázis/környezeti fájlok webes elérésének tiltása ellenőrizve. Vercel-projekt: `impavidus-lab-demo`, Node 24, HTTPS. A GitHub-kapcsolat indítása `git_info_fail` hibát adott, ezért a fájlok közvetlen API-feltöltésével telepítve; GitHubra push önmagában jelenleg nem telepít új változatot.
+
 A Vercel-konfiguráció a meglévő frontend és backend bemutatótelepítése. Nem éles tárhely: kizárólag a `demo/impavidus-demo.sqlite` három demófiókja és két mesterséges kliensének 20 napja (2026-09-14–2026-10-03) kerül ki. A helyi `data/` könyvtár nem része a csomagnak.
 
 ## Megtekintés és adatok
